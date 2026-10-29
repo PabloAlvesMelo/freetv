@@ -6,6 +6,8 @@
 
 [**⬇ Baixar o Melo Free TV (APK)**](https://github.com/PabloAlvesMelo/freetv/releases/latest/download/MeloFreeTV.apk)
 
+Na TV, pelo app **Downloader**: digite o código **6272194**
+
 <sub>Sempre a versão mais nova · [todas as versões](https://github.com/PabloAlvesMelo/freetv/releases)</sub>
 
 <img src=".github/melo-vitrine.jpg" width="880" alt="Tela inicial do Melo Free TV no layout Vitrine: a foto do título em destaque cobre a tela, com a fileira de filmes e séries e a barra de apps">
@@ -45,8 +47,11 @@ pela dele. Na primeira troca, a TV pergunta *Permitir depuração USB?*: marque 
 
 Escolha uma das formas:
 
-- **Pela própria TV:** instale o app *Downloader* pela Play Store, permita que ele instale apps (fontes desconhecidas)
-  e abra o endereço `https://github.com/PabloAlvesMelo/freetv/releases/latest/download/MeloFreeTV.apk`.
+- **Pela própria TV (mais fácil):** instale o app *Downloader* pela Play Store e permita que ele instale apps
+  (Configurações > Apps > Segurança e restrições > Fontes desconhecidas). Abra o Downloader, digite o código
+  **6272194** e aperte *Go*. Ele baixa a versão mais nova e oferece a instalação. Se o Google Play Protect avisar,
+  escolha *Mais detalhes > Instalar mesmo assim*. O código leva a
+  `https://github.com/PabloAlvesMelo/freetv/releases/latest/download/MeloFreeTV.apk`.
 - **Pelo computador:** baixe o [APK](https://github.com/PabloAlvesMelo/freetv/releases/latest/download/MeloFreeTV.apk)
   e instale com `adb install -r MeloFreeTV.apk`.
 
