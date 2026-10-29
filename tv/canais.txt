@@ -1,0 +1,50 @@
+# Seus canais, na ordem em que aparecem no TiviMate. Formato: Grupo | nome como está na lista do iptv-org
+# Apague, reordene ou adicione linhas e rode: python montar.py
+TV Aberta | Rede Globo (1080p)
+TV Aberta | SBT Nacional (1080p)
+TV Aberta | Record (720p)
+TV Aberta | Band (720p)
+TV Aberta | Rede TV! SD (720p)
+TV Aberta | TV Cultura (720p)
+TV Aberta | TV Brasil (720p)
+TV Aberta | TV Gazeta (720p)
+TV Aberta | Rede Vida (720p)
+TV Aberta | TV Aparecida (720p)
+TV Aberta | TV Cancao Nova (720p)
+Notícias | CNN Brasil (1080p)
+Notícias | BandNews (1080p)
+Notícias | Record News (720p)
+Notícias | SBT News (720p)
+Notícias | Jovem Pan News (720p)
+Notícias | Times Brasil (720p)
+Notícias | Canal UOL (1080p)
+Notícias | TV Camara (Brazil) (1080p)
+Notícias | TV Senado (Brazil) (720p)
+Notícias | TV Justica (720p)
+Esportes | CazeTV
+Esportes | FIFA+ Portuguese (720p)
+Esportes | Red Bull TV BR (1080p)
+Esportes | Pluto TV Esportes
+Filmes e Séries | Pluto TV Cine Sucessos
+Filmes e Séries | Pluto TV Filmes Acao
+Filmes e Séries | Pluto TV Filmes Nacionais
+Filmes e Séries | Pluto TV Cine Comedia (United States) BR
+Filmes e Séries | Pluto TV Series Criminais
+Filmes e Séries | Pluto TV Novelas BR
+Filmes e Séries | Globoplay Novelas (1080p)
+Filmes e Séries | Star Trek
+Infantil | TV Ra Tim Bum (720p)
+Infantil | Turma da Monica (720p)
+Infantil | Pluto TV Kids
+Infantil | Pluto TV Desenhos Classicos
+Infantil | Bob Esponja Calca Quadrada (720p)
+Infantil | Avatar: A lenda de Aang
+Variedades | Tastemade Brasil (720p)
+Variedades | Pluto TV Cozinha
+Variedades | Pluto TV Viagens
+Variedades | Pluto TV Natureza
+Variedades | Canal Futura (720p)
+Variedades | SESC TV (1080p)
+Variedades | Arte 1 (720p)
+Música | Trace Brazuca HD (1080p)
+Música | MTV Biggest Pop BR (1080p)
