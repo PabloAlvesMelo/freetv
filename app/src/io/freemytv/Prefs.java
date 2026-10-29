@@ -205,7 +205,7 @@ final class Prefs {
     /** Vitrine e Menu flutuante: a foto do destaque focado cobre a tela toda, com os painéis em vidro escuro. */
     static boolean photo() { return vitrine() || flutuante(); }
 
-    /** Adicionais > Arquivos: o X-plore (instalado pela Play Store ao ligar). */
+    /** Adicionais > Arquivos: o FX File Explorer (instalado pela Play Store ao ligar). */
     static boolean files() { return sp().getBoolean("files", false); }
     static void setFiles(boolean on) { put("files", on); }
 

@@ -1031,7 +1031,7 @@ public class SettingsActivity extends Activity {
             l.add("Câmeras");
             l.add("Editar câmeras");
             l.add("Apagar dados das câmeras");
-            l.add("Arquivos (X-plore)");
+            l.add("Arquivos (FX)");
             l.add("Lista IPTV");
             l.add("Voltar à lista anterior");
             l.add("Assistente de voz");
@@ -2315,7 +2315,7 @@ public class SettingsActivity extends Activity {
 
         // MARK: - Arquivos e lista IPTV
 
-        private static final String XPLORE = "com.lonelycatgames.Xplore";
+        private static final String FILES_APP = "nextapp.fx";   // o FX File Explorer
         private static final String IPTV_URL = "https://raw.githubusercontent.com/PabloAlvesMelo/freetv/main/tv/lista.m3u";
         private String iptvStatus = "", iptvBackStatus = "";
 
@@ -2341,14 +2341,14 @@ public class SettingsActivity extends Activity {
             invalidate();
         }
 
-        /** Liga ou desliga Arquivos; ao ligar sem o X-plore, abre a página dele na Play Store. */
+        /** Liga ou desliga Arquivos; ao ligar sem o FX, abre a página dele na Play Store. */
         private void toggleFiles() {
             boolean on = !Prefs.files();
             Prefs.setFiles(on);
             android.content.pm.PackageManager pm = getContext().getPackageManager();
-            if (on && pm.getLaunchIntentForPackage(XPLORE) == null && pm.getLeanbackLaunchIntentForPackage(XPLORE) == null) {
+            if (on && pm.getLaunchIntentForPackage(FILES_APP) == null && pm.getLeanbackLaunchIntentForPackage(FILES_APP) == null) {
                 try {
-                    activity.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + XPLORE)));
+                    activity.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + FILES_APP)));
                 } catch (RuntimeException ignored) {
                 }
             }

@@ -22,7 +22,7 @@
 - **Oito temas** (Pérola, Noite, Azul, Esmeralda, Âmbar, Índigo, Mostarda e Grafite), com o modo automático de dia e
   de noite.
 - **Tela de descanso** com as fotos dos destaques ou com as suas fotos, enviadas pelo celular com um QR code.
-- **Extras:** relógio e clima, câmeras ONVIF, arquivos (X-plore), lista IPTV, desligamento automático e ícones de
+- **Extras:** relógio e clima, câmeras ONVIF, arquivos (FX File Explorer), lista IPTV, desligamento automático e ícones de
   atalho no topo.
 - **Atualiza sozinho:** procura versões novas neste repositório e instala depois de você confirmar.
 - **Seguro:** não precisa de root e não desinstala nada da TV. A opção *Original* devolve a tela inicial de fábrica.

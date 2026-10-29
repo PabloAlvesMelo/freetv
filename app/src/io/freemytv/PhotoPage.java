@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A página que o celular abre pelo QR code de Adicionais › Fotos, para mandar fotos da galeria sem cabo nem X-plore:
+ * A página que o celular abre pelo QR code de Adicionais › Fotos, para mandar fotos da galeria sem cabo nem app de arquivos:
  * http://<o endereço da TV na rede de casa>:<uma porta livre>/<um código aleatório>. O próprio celular reduz cada foto
  * (a TV usa 2112 × 1188) e manda uma por vez; a TV guarda na caixa de entrada de Photos, que importa como as do PC.
  * Fica aberta 10 minutos (ou até sair da tela), só na rede de casa, como a página da chave TMDB (KeyPage).
