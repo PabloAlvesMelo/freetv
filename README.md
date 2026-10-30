@@ -31,6 +31,8 @@ Na TV, pelo app **Downloader**: digite o código **6272194**
 
 <img src=".github/melo-flutuante.jpg" width="880" alt="Layout Menu flutuante: o menu de vidro à esquerda sobre a foto do destaque">
 
+<img src=".github/melo-cinema.jpg" width="880" alt="Layout Cinema: a foto do destaque em tela cheia, com o título, o botão para assistir e a barra de apps embaixo">
+
 ## Instalar
 
 Você precisa de uma TV ou aparelho com Android TV ou Google TV (Android 8 ou mais novo). Testado no Xiaomi Mi TV Stick.
