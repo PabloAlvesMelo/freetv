@@ -75,7 +75,12 @@ build-tools 34.0.0 and android-34: a newer SDK here can let through a call that 
    instead (`adb kill-server; adb nodaemon server &`), or allow the terminal app under System Settings → Privacy &
    Security → Local Network.
 7. **Tell them what the switch does** before they make it: the home screen and screensaver change, a short list of
-   promo apps is turned off (never uninstalled), and *Original* brings it all back. On TCL, the remote's Netflix,
+   promo apps is turned off (never uninstalled), and *Original* brings it all back. To save memory, the voice assistant
+   (`HomeMode.ASSISTANT`), Chromecast built-in (`HomeMode.CAST`, `com.google.android.apps.mediashell`) and navigation
+   sounds start **off** (`Prefs.assistant`, `Prefs.cast`, `Prefs.sounds`): tell them, and to check *Melo Free TV* →
+   *Configurações* after installing to turn on what they use. Their choice is kept across updates and restarts (the
+   boot and update check re-applies the Chromecast one). *Original* and the watchdog turn the Chromecast back on; the
+   assistant follows its option, so they turn it on before going back to *Original* or uninstalling. On TCL, the remote's Netflix,
    YouTube and Prime buttons keep working through a small accessibility service that only reads those buttons
    (*Free My TV* → *Remote Buttons* picks what each opens); *Original* turns it off. On TCL's Android 11 there's no
    service (the TV moved the volume twice with it), so there the buttons work only on Free My TV's home screen. On
@@ -140,7 +145,8 @@ The onn 4K Streaming Box (Amlogic S905Y4, Google TV 14 tested) ships no promo ap
 entries; its system pieces are in `PROTECTED`. USB debugging opens ADB on 5555 there, as the app needs.
 
 **Uninstalled while in Free My TV mode?** The apps it turned off stay off. Bring them back with
-`adb shell pm enable <package>` (the `DEBLOAT` list and the stock home screen), then
+`adb shell pm enable <package>` (the `DEBLOAT` list, the stock home screen, and `com.google.android.apps.mediashell`,
+`com.google.android.katniss` and `com.android.hotwordenrollment.okgoogle` if Chromecast or the assistant were off), then
 `adb shell cmd package set-home-activity <stock home activity>` and
 `adb shell settings put secure screensaver_components <stock screensaver>`. On an HY300 with JmLauncher, also
 `adb shell setprop persist.sys.home.selectpkg ''`.
