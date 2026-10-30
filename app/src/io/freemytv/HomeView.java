@@ -3284,7 +3284,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (int t = 0; t < TAB_KIND.length; t++) {
             if (t == tab || t == 0) continue;
             List<Recs.Pick> other = recs.now(TAB_KIND[t]);
-            for (int i = 0; i < Math.min(3, other.size()); i++) recs.backdrop(other.get(i));
+            for (int i = 0; i < Math.min(3, other.size()); i++) recs.prefetch(other.get(i));   // só o pôster: o card largo vem ao abrir a aba
         }
         // Picks bring their own background; without them (no TMDB key), your photo if there is one.
         boolean own = !picksOn() && Photos.on(getContext());
@@ -3879,10 +3879,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         shadowDeep.setColor(Ui.alpha(0xFF000000, tone(0.14f, 0.32f) + tone(0.2f, 0.28f) * f));
         shadows.draw(c, tmp, r0, DEEP_BLUR * k, shadowDeep);
         c.restore();
-        Backdrop b = p == null ? null : recs.backdrop(p);
-        Bitmap img = b == null ? null : b.wide;
         Recs.Poster poster = recs.poster(p);
         float open = Ui.clamp(cardOpen[i].value);
+        // The wide photo (~2 MB of video memory) only while the card is open, or without a poster to show; a narrow
+        // card asks just for its poster.
+        boolean noPoster = p == null || p.poster == null || p.poster.isEmpty();
+        if (p != null && poster == null && !noPoster) recs.prefetch(p);
+        Backdrop b = p != null && (open > 0.01f || noPoster) ? recs.backdrop(p) : null;
+        Bitmap img = b == null ? null : b.wide;
         if (poster != null) {   // narrow: the poster; as the card widens the backdrop fades in over it
             float back = img == null ? 0 : Ui.clamp((open - 0.1f) / 0.6f);
             if (back < 0.999f) coverImage(c, poster.bitmap, poster.shader, cell, r, 1);   // not once the backdrop covers it

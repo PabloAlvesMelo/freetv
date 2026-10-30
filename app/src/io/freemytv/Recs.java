@@ -65,7 +65,8 @@ final class Recs {
 
     /** The backdrops: on a 720p UI, TMDB's 1280-wide copy shows the same and is lighter to download and decode. */
     private static final String IMAGES = "https://image.tmdb.org/t/p/" + (Backdrop.W <= 1280 ? "w1280" : "original");
-    private static final String POSTERS = "https://image.tmdb.org/t/p/w500";
+    // w342: the narrow card is 336 px wide (w500 decoded to 1.5 MB for it)
+    private static final String POSTERS = "https://image.tmdb.org/t/p/w342";
     /** TMDB's Animation genre (movies and shows: cartoons and anime), left out with hide_animation=true. */
     private static final int ANIMATION = 16;
     private static final long LIST_EVERY = 6 * 3600_000L;
@@ -176,6 +177,7 @@ final class Recs {
     // just for the photos on the background (the one showing, the one fading out, the next), read again from disk.
     private final Map<String, Backdrop> backgrounds = new LinkedHashMap<>(4, 0.75f, true);
     private static final int BACKGROUNDS = 3;
+    private final java.util.Set<String> posterless = new java.util.HashSet<>();   // prefetch: no poster came, don't ask every frame
     private final java.util.Set<String> pending = new java.util.HashSet<>();
     private volatile List<Pick> picks = new ArrayList<>();
     private volatile int period = -1;
@@ -403,7 +405,12 @@ final class Recs {
         while (o.outWidth / (sample * 2) >= maxWidth) sample *= 2;
         o = new BitmapFactory.Options();
         o.inSampleSize = sample;
-        return BitmapFactory.decodeFile(f.getPath(), o);
+        Bitmap b = BitmapFactory.decodeFile(f.getPath(), o);
+        if (b == null) return null;
+        // At most maxWidth (a 1920 one was 8 MB), and in video memory like the cards: the process doesn't keep it.
+        Bitmap out = b.getWidth() <= maxWidth ? b : Ui.downscale(b, maxWidth, Math.round((float) maxWidth * b.getHeight() / b.getWidth()));
+        if (out != b) b.recycle();
+        return Backdrop.gpu(out);
     }
 
     private File imageFile(Pick p) {
@@ -1011,9 +1018,12 @@ final class Recs {
 
     private void download(Pick p) throws IOException {
         File f = imageFile(p);
-        if (!f.exists()) fetchFile(f, p.id < 0
-                ? plexOpen("/photo/:/transcode?width=1920&height=1080&minSize=1&url=" + URLEncoder.encode(p.backdrop, "UTF-8"))
-                : (HttpURLConnection) new URL(IMAGES + p.backdrop).openConnection());
+        if (!f.exists()) {
+            fetchFile(f, p.id < 0
+                    ? plexOpen("/photo/:/transcode?width=1920&height=1080&minSize=1&url=" + URLEncoder.encode(p.backdrop, "UTF-8"))
+                    : (HttpURLConnection) new URL(IMAGES + p.backdrop).openConnection());
+            shrink(f);
+        }
         File poster = posterFile(p);
         if (poster == null || poster.exists()) return;
         try {   // the narrow cards: without a poster they crop the backdrop
@@ -1022,6 +1032,40 @@ final class Recs {
                     : (HttpURLConnection) new URL(POSTERS + p.poster).openConnection());
         } catch (IOException e) {
             AppLog.w("poster: " + e.getMessage());
+        }
+    }
+
+    /**
+     * TMDB's original can be 3000 px or 4K: saved at the screen's width at most (Backdrop.W, the screensaver's size),
+     * so no reading of it later decodes 19 MB for a 1092 px card. Once, when it arrives (or the first time an older
+     * one is read); a file that fails stays as it was.
+     */
+    private static void shrink(File f) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(f.getPath(), bounds);
+        if (bounds.outWidth <= Backdrop.W * 1.1f || bounds.outHeight <= 0) return;
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = 1;
+        while (bounds.outWidth / (opts.inSampleSize * 2) >= Backdrop.W) opts.inSampleSize *= 2;
+        File part = new File(f.getPath() + ".part");
+        Bitmap src = null, out = null;
+        try {
+            src = BitmapFactory.decodeFile(f.getPath(), opts);
+            if (src == null) return;
+            out = Ui.downscale(src, Backdrop.W, Math.round((float) Backdrop.W * src.getHeight() / src.getWidth()));
+            try (FileOutputStream o = new FileOutputStream(part)) {
+                if (!out.compress(Bitmap.CompressFormat.JPEG, 90, o)) throw new IOException("couldn't compress");
+            }
+            if (!part.renameTo(f)) throw new IOException("couldn't save the smaller image");
+            AppLog.w("image " + bounds.outWidth + "×" + bounds.outHeight + " saved at " + out.getWidth() + "×" + out.getHeight());
+        } catch (IOException | RuntimeException | OutOfMemoryError e) {
+            //noinspection ResultOfMethodCallIgnored
+            part.delete();
+            AppLog.w("smaller image: " + e.getMessage());
+        } finally {
+            if (out != null && out != src) out.recycle();
+            if (src != null) src.recycle();
         }
     }
 
@@ -1061,6 +1105,7 @@ final class Recs {
         File f = imageFile(p);
         try {
             download(p);
+            shrink(f);   // one saved before images were made smaller
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
             BitmapFactory.decodeFile(f.getPath(), bounds);
@@ -1084,12 +1129,13 @@ final class Recs {
             }
             Backdrop backdrop = forLight ? Backdrop.card(b) : Backdrop.make(b, false);
             if (forLight != light) return;   // the design changed midway: this one is stale
-            Poster poster = forLight ? loadPoster(p) : null;
+            Poster poster = forLight && poster(p) == null ? loadPoster(p) : null;
             synchronized (images) {
                 images.put(p.backdrop, backdrop);
-                if (poster != null) posters.put(p.backdrop, poster);
-                while (images.size() > (forLight ? Prefs.cards() + 7 : 4)) images.remove(images.keySet().iterator().next());
-                posters.keySet().retainAll(images.keySet());
+                if (poster != null) keepPoster(p, poster);
+                // Light design: the wide card (~2 MB of video memory each) only for this tab's picks; the other tabs
+                // keep their posters (prefetch), and the wide one comes when the tab opens.
+                while (images.size() > (forLight ? Prefs.cards() + 1 : 4)) images.remove(images.keySet().iterator().next());
             }
             notifyListeners();
         } catch (IOException | RuntimeException | OutOfMemoryError e) {
@@ -1110,8 +1156,46 @@ final class Recs {
             return null;
         }
         Bitmap card = Backdrop.card(full, Backdrop.TALL_W, Backdrop.TALL_H);
-        if (card != full && !full.isRecycled()) full.recycle();   // the decoded 500 × 750 poster is 1.5 MB
+        if (card != full && !full.isRecycled()) full.recycle();
         return new Poster(card);
+    }
+
+    private void keepPoster(Pick p, Poster poster) {
+        posters.put(p.backdrop, poster);
+        while (posters.size() > Prefs.cards() + 7) posters.remove(posters.keySet().iterator().next());
+    }
+
+    /**
+     * Another tab's pick (light design): the files and its poster, not the wide card, so switching tabs shows the
+     * posters at once and only the focused card waits for its photo.
+     */
+    void prefetch(Pick p) {
+        if (!light) {
+            backdrop(p);
+            return;
+        }
+        if (p == null || p.backdrop == null) return;
+        final String key = "p:" + p.backdrop;
+        synchronized (images) {
+            if (posters.containsKey(p.backdrop) || images.containsKey(p.backdrop) || posterless.contains(p.backdrop)) return;
+            if (!pending.add(key)) return;
+        }
+        io.execute(() -> {
+            try {
+                download(p);
+                Poster poster = poster(p) == null ? loadPoster(p) : null;
+                synchronized (images) {
+                    if (poster != null) keepPoster(p, poster);
+                    else if (poster(p) == null) posterless.add(p.backdrop);
+                }
+                if (poster != null) notifyListeners();
+            } catch (IOException | RuntimeException | OutOfMemoryError e) {
+                synchronized (images) { posterless.add(p.backdrop); }
+                AppLog.w("recommendation poster: " + e.getMessage());
+            } finally {
+                synchronized (images) { pending.remove(key); }
+            }
+        });
     }
 
     Poster poster(Pick p) {
@@ -1128,6 +1212,7 @@ final class Recs {
             images.keySet().retainAll(keep);
             backgrounds.keySet().retainAll(keep);
             posters.keySet().retainAll(keep);
+            posterless.clear();   // a network that failed may work now
         }
     }
 
