@@ -87,6 +87,26 @@ final class Backdrop {
         return new Backdrop(null, null, null, wide, null, null, null, null);
     }
 
+    /** Width the background is built from: twice the glass (the largest thing it keeps), not the screen's. */
+    static final int BACKGROUND_W = GW * 2;
+
+    /**
+     * Only the background (light design; the card is Recs's other copy): its frosted and glass versions, built from a
+     * 960 × 540 photo. From the full 1920 × 1080 one, each new background (every 10 s) briefly cost ~20 MB on a 1 GB
+     * stick, for the same 480 × 270 glass.
+     */
+    static Backdrop background(Bitmap src) {
+        Bitmap crop = center(src, (float) W / H);
+        if (crop != src) src.recycle();
+        Bitmap out = Ui.downscale(crop, BACKGROUND_W, BACKGROUND_W * H / W);
+        if (out != crop) crop.recycle();
+        int[] frost = reduce(out, FW, FH, 3, 3);
+        int[] glass = reduce(out, GW, GH, 2, 2);
+        out.recycle();
+        return new Backdrop(null, frost, null, null, whiten(frost.clone(), 0.82f), whiten(glass.clone(), 0.74f),
+                darken(frost.clone(), 0.76f), darken(glass, 0.56f));
+    }
+
     /**
      * `own`: one of your photos (Photos). Its background is less blurred than a pick's; behind the clock, date and
      * weather it is whitened (darkened at night) as much as a pick's, so the text stays readable, then less toward the

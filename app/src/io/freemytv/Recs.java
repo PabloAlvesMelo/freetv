@@ -1064,15 +1064,16 @@ final class Recs {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
             BitmapFactory.decodeFile(f.getPath(), bounds);
+            boolean forLight = light;
+            int width = forLight && background ? Backdrop.BACKGROUND_W : Backdrop.W;
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inSampleSize = 1;
-            while (bounds.outWidth / (opts.inSampleSize * 2) >= Backdrop.W) opts.inSampleSize *= 2;
+            while (bounds.outWidth / (opts.inSampleSize * 2) >= width) opts.inSampleSize *= 2;
             Bitmap b = BitmapFactory.decodeFile(f.getPath(), opts);
             if (b == null) throw new IOException("unreadable image");
-            AppLog.w("backdrop \u201c" + p.title + "\u201d: " + bounds.outWidth + "×" + bounds.outHeight + " → " + Backdrop.W + "×" + Backdrop.H);
-            boolean forLight = light;
+            AppLog.w((background ? "background “" : "backdrop “") + p.title + "”: " + bounds.outWidth + "×" + bounds.outHeight + " → " + b.getWidth() + "×" + b.getHeight());
             if (forLight && background) {
-                Backdrop full = Backdrop.make(b, true);
+                Backdrop full = Backdrop.background(b);
                 if (forLight != light) return;
                 synchronized (images) {
                     backgrounds.put(p.backdrop, full);
