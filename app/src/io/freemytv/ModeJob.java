@@ -14,7 +14,7 @@ import android.os.PersistableBundle;
  */
 public class ModeJob extends JobService {
     static final String APPLY = "apply", VERIFY = "verify", REVERT = "revert", MEMORY = "memory", REMOTE = "remote",
-            PLAYING = "playing", ASSIST = "assist", SAVER_TIME = "saver-time", UPDATE = "update", INSTALL = "install";
+            PLAYING = "playing", ASSIST = "assist", CAST = "cast", SAVER_TIME = "saver-time", UPDATE = "update", INSTALL = "install";
 
     @Override public boolean onStartJob(JobParameters params) {
         PersistableBundle extras = params.getExtras();
@@ -32,6 +32,7 @@ public class ModeJob extends JobService {
                     case REMOTE: HomeMode.ensureRemoteServiceNow(app); break;
                     case PLAYING: HomeMode.nowPlayingAccessNow(app); break;
                     case ASSIST: HomeMode.assistantNow(app); break;
+                    case CAST: HomeMode.castNow(app); break;
                     case SAVER_TIME: HomeMode.saverTimeNow(app, mode); break;
                     case UPDATE: again = Updates.check(app) && params.getJobId() == Updates.JOB; break;   // the week's, or OK
                     case INSTALL: Updates.install(app); break;

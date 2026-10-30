@@ -595,7 +595,7 @@ public class SettingsActivity extends Activity {
             c.drawText(MENU[focus], x, y, heading);
             String[] about = {
                     "Escolha a tela inicial: o Melo Free TV ou a original da TV.",
-                    "Título, idioma, temperatura, sons, destaques, tela de descanso e assistente de voz.",
+                    "Título, idioma, temperatura, sons, destaques, tela de descanso, assistente de voz e Chromecast.",
                     "Fotos, câmeras, clima, arquivos, lista IPTV e a chave TMDB.",
                     "Relógio, TV online, configurações e Wi-Fi: ligar, desligar e mudar a ordem.",
                     "Os apps da barra da tela inicial e a ordem deles.",
@@ -764,10 +764,8 @@ public class SettingsActivity extends Activity {
             c.drawText(Ui.tr("Switching takes a few seconds; the screen blinks while it measures."), LIST_X * k + 30 * k,
                     (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 40) * k, hint);
             drawUninstallWarning(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 110) * k);
-            // A velocidade e a memória medidas na troca (Original × Melo Free TV), os destaques e os últimos avisos.
-            float y = drawComparison(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 210) * k);
-            y = drawRecs(c, y + 26 * k);
-            drawNotices(c, y + 40 * k);
+            // A velocidade e a memória medidas na troca: Original × Melo Free TV (uma linha abaixo do aviso).
+            drawComparison(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 260) * k);
         }
 
         /** O Android não avisa o app antes de desinstalar: sem voltar ao Original, a TV fica sem tela inicial. */
@@ -970,7 +968,7 @@ public class SettingsActivity extends Activity {
          *  forecast, now playing, quotes, one row per coin, then the TMDB key and updates (the last row). */
         private static final int PHOTOS_ROW = 3, PICKS_ROW = 5, SAVER_ROW = 6, WEATHER_ROW = 7, CITY_ROW = 8, FORECAST_ROW = 9,
                 PLAYING_ROW = 10, TITLE_ROW = 11, CLOCK_ROW = 12, CAMS_ROW = 13, CAMS_EDIT_ROW = 14, CAMS_RESET_ROW = 15,
-                FILES_ROW = 16, IPTV_ROW = 17, IPTV_BACK_ROW = 18, ASSIST_ROW = 19, QUOTES_ROW = -1, COIN_ROWS = 20;   // sem cotações: sem linha de widget nem de moedas
+                FILES_ROW = 16, IPTV_ROW = 17, IPTV_BACK_ROW = 18, ASSIST_ROW = 19, CAST_ROW = 20, QUOTES_ROW = -1, COIN_ROWS = 21;   // sem cotações: sem linha de widget nem de moedas
         /** Home Settings rows on screen at once (what fits above the hints at 1080p); a longer list scrolls. */
         private static final int SETTINGS_VISIBLE = 10;
 
@@ -982,7 +980,7 @@ public class SettingsActivity extends Activity {
         private int[] hsMap() {
             List<Integer> r = new ArrayList<>();
             if (hsGroup == 0) {
-                for (int x : new int[] {TITLE_ROW, 0, 1, 4, PICKS_ROW, SAVER_ROW, ASSIST_ROW}) r.add(x);
+                for (int x : new int[] {TITLE_ROW, 0, 1, 4, PICKS_ROW, SAVER_ROW, ASSIST_ROW, CAST_ROW}) r.add(x);
             } else {
                 r.add(PHOTOS_ROW);
                 r.add(CAMS_ROW);
@@ -1048,6 +1046,7 @@ public class SettingsActivity extends Activity {
             l.add("Lista IPTV");
             l.add("Voltar à lista anterior");
             l.add("Assistente de voz");
+            l.add("Chromecast embutido");
             l.add(Ui.tr("TMDB key"));
             l.add(Ui.tr("Updates"));
             return l.toArray(new String[0]);
@@ -1103,6 +1102,7 @@ public class SettingsActivity extends Activity {
             v[CAMS_RESET_ROW] = cams == 0 ? "—" : cams == 1 ? "1 câmera" : cams + " câmeras";
             v[FILES_ROW] = onOff(Prefs.files());
             v[ASSIST_ROW] = onOff(Prefs.assistant());
+            v[CAST_ROW] = onOff(Prefs.cast());
             v[IPTV_ROW] = iptvStatus.isEmpty() ? "Baixar ›" : iptvStatus;
             v[IPTV_BACK_ROW] = !iptvBackStatus.isEmpty() ? iptvBackStatus : iptvBackup().exists() ? "Restaurar ›" : "Sem backup";
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
@@ -1406,6 +1406,10 @@ public class SettingsActivity extends Activity {
                 case ASSIST_ROW:   // o botão do microfone: o Google Assistente ligado ou desativado no sistema
                     Prefs.setAssistant(!Prefs.assistant());
                     HomeMode.assistant(getContext());
+                    break;
+                case CAST_ROW:   // transmitir do celular: o app do Chromecast ligado ou desativado no sistema
+                    Prefs.setCast(!Prefs.cast());
+                    HomeMode.cast(getContext());
                     break;
                 case FORECAST_ROW:   // both are in memory: nothing to fetch
                     Prefs.setForecast(Prefs.forecast().equals("days") ? "hours" : "days");
@@ -2690,6 +2694,7 @@ public class SettingsActivity extends Activity {
                     : screen == SAVER_SCREEN ? "OK mostra a tela de descanso agora. Qualquer tecla volta."
                     : screen == HOME_SETTINGS && hsRow(from + focus) == keyRow() ? "OK mostra um QR code: leia com a câmera do celular e cole a chave na página (mesma rede), ou digite."
                     : screen == HOME_SETTINGS && hsRow(from + focus) == ASSIST_ROW ? "Ligado, o botão do microfone abre o Google Assistente. Desligado, ele não faz nada (e libera memória)."
+                    : screen == HOME_SETTINGS && hsRow(from + focus) == CAST_ROW ? "Ligado, dá para transmitir do celular para a TV. Desligado, a TV some da lista (e libera memória)."
                     : screen == HOME_SETTINGS && hsRow(from + focus) == IPTV_BACK_ROW ? "OK troca a lista atual pela anterior (e guarda a atual como backup)."
                     : screen == HOME_SETTINGS && hsRow(from + focus) == IPTV_ROW ? "OK baixa a lista para Download. No TiviMate: Adicionar playlist > M3U > Selecionar playlist local."
                     : Ui.tr("OK or the arrows change the value.")), LIST_X * k + 30 * k, hy, hint);

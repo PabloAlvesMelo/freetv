@@ -379,6 +379,44 @@ final class HomeMode {
         }
     }
 
+    /** Chromecast embutido (Configurações): transmitir do celular para a TV. Sempre ligado no Original. */
+    static final String CAST = "com.google.android.apps.mediashell";
+
+    /**
+     * Configurações > Chromecast embutido: desligado, o app do Chromecast fica desativado no sistema (libera de 12 a
+     * 70 MB num stick de 1 GB) e a TV some da lista de transmissão do celular; ligado, ele volta. Só no modo Free My TV:
+     * o Original o liga sempre. Nunca desligado se salvou uma rede Wi-Fi (o Android a apagaria).
+     */
+    static void cast(Context c) {
+        ModeJob.schedule(c, ModeJob.CAST, null, 0);
+    }
+
+    static void castNow(Context app) {
+        if (AMAZON) return;
+        synchronized (RUN) {
+            Prefs.reload();
+            try (Adb adb = Adb.connect(app, 10_000, null)) {
+                JSONObject s = state(app);
+                applyCast(adb, Prefs.cast() || !FREE.equals(s.optString("mode")) || s.optBoolean("homeReverted"));
+            } catch (IOException e) {
+                AppLog.w("chromecast: " + e.getMessage());   // o ADB não respondeu: fica como estava
+            }
+        }
+    }
+
+    private static void applyCast(Adb adb, boolean on) throws IOException {
+        if (!packages(adb, "").contains(CAST) || packages(adb, "-d").contains(CAST) != on) return;   // não há, ou já como deve
+        if (!on) {
+            Set<String> owners = wifiOwners(adb);
+            if (owners == null || owners.contains(CAST)) {
+                AppLog.w("chromecast fica ligado: " + (owners == null ? "não deu para ver quem salvou o Wi-Fi" : "salvou uma rede Wi-Fi"));
+                return;
+            }
+        }
+        String out = adb.shell(on ? "pm enable " + CAST : "pm disable-user --user 0 " + CAST).trim();
+        AppLog.w("chromecast " + (on ? "ligado" : "desligado") + ": " + out);
+    }
+
     /**
      * Tela de descanso > Iniciar após: o tempo sem usar o controle até ela começar (o screen_off_timeout do Android,
      * em ms). Pedido com um pequeno atraso: apertar ← → várias vezes grava só o último.
@@ -535,6 +573,11 @@ final class HomeMode {
                     AppLog.w("remote buttons service: " + e.getMessage());
                 }
             }
+            try {
+                applyCast(adb, Prefs.cast());
+            } catch (IOException e) {
+                AppLog.w("chromecast: " + e.getMessage());
+            }
             notice(c, Ui.trf("Free My TV is on: new home screen and screensaver, {n} apps turned off.", "n", disabled.size()));
             busy(c, Ui.tr("Measuring Free My TV…"));
             measure(c, adb, FREE, true);   // the memory now, and again 2 min later (ModeJob.MEMORY), once it settled
@@ -572,6 +615,11 @@ final class HomeMode {
                 // Checked: whatever didn't come back stays on the list (and in the notice); nothing disappears silently.
                 String out = adb.shell("pm enable " + pkg);
                 if (!out.contains("new state: enabled")) failed.add(pkg);
+            }
+            try {
+                applyCast(adb, true);   // o Original traz o Chromecast de volta, desligado ou não nos Ajustes
+            } catch (IOException e) {
+                AppLog.w("chromecast: " + e.getMessage());
             }
             busy(c, Ui.tr("Restoring the original home screen…"));
             boolean homeOk = restoreHome(adb, home);
@@ -675,6 +723,11 @@ final class HomeMode {
                     AppLog.w("could not give the home screen back");
                     return;
                 }
+                try {
+                    applyCast(adb, true);   // the way back brings the Chromecast back too
+                } catch (IOException e) {
+                    AppLog.w("chromecast: " + e.getMessage());
+                }
                 // Google TV's setup app only now, with its home screen back (alone, its recovery screen takes Home).
                 if (!keptOff.contains(GOOGLE_SETUP) && adb.shell("pm path " + GOOGLE_SETUP).contains("package:")) {
                     adb.shell("pm enable " + GOOGLE_SETUP);
@@ -737,6 +790,11 @@ final class HomeMode {
                     nowPlaying(app, adb, !s.optBoolean("homeReverted") && nowPlayingOn());
                 } catch (IOException e) {
                     AppLog.w("now playing: " + e.getMessage());
+                }
+                try {   // as Settings say (off by default: an install that was already on Free My TV gets it here)
+                    applyCast(adb, Prefs.cast() || s.optBoolean("homeReverted"));
+                } catch (IOException e) {
+                    AppLog.w("chromecast: " + e.getMessage());
                 }
                 Set<String> present = packages(adb, "");
                 Set<String> disabledNow = packages(adb, "-d");

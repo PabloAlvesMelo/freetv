@@ -223,7 +223,7 @@ final class Prefs {
     }
 
     /** The home screen's soft click when moving and opening. */
-    static boolean sounds() { return sp().getBoolean("sounds", true); }
+    static boolean sounds() { return sp().getBoolean("sounds", false); }   // padrão desligado
     static void setSounds(boolean on) { put("sounds", on); }
 
     /** OK on the screensaver opens the title it shows, in its app; any other key only closes it. Off: any key closes it. */
@@ -259,6 +259,12 @@ final class Prefs {
     static boolean assistant() { return sp().getBoolean("assistant", false); }
     static void setAssistant(boolean on) {   // committed: o processo principal lê logo em seguida para ligar ou desligar
         sp().edit().putBoolean("assistant", on).commit();
+    }
+
+    /** Configurações > Chromecast embutido: transmitir do celular para a TV. Padrão desligado (libera memória). */
+    static boolean cast() { return sp().getBoolean("cast", false); }
+    static void setCast(boolean on) {   // committed, como o assistente
+        sp().edit().putBoolean("cast", on).commit();
     }
 
     static boolean nowPlaying() { return sp().getBoolean("nowPlaying", false); }
