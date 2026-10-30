@@ -198,6 +198,38 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
     };
 
+    // A foto dos destaques (fundo do Clássico; foto do Cinema, Vitrine e Menu flutuante): a próxima a cada 10 s, sempre.
+    // Com o foco nos cards, o foco vai junto para o próximo card (← volta).
+    private static final long PHOTO_EVERY = 10_000;
+    private int photoIndex;
+    private final Runnable photoTick = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            if (!sheetOpen && !Prefs.minimal() && cards.size() > 1) {
+                if (zone == Z_CARDS && !tvFocus) {
+                    cardIndex = (cardIndex + 1) % cards.size();
+                    retarget(false);   // photoIndex segue o card focado
+                } else {
+                    photoIndex = (photoIndex + 1) % cards.size();
+                }
+                showPhoto();
+            }
+            handler.postDelayed(this, PHOTO_EVERY);
+        }
+    };
+
+    /** Mostra a foto de photoIndex: o fundo do Clássico em cross-fade; nos outros, a foto grande é redesenhada. */
+    private void showPhoto() {
+        if (cards.isEmpty()) return;
+        photoIndex = Math.min(photoIndex, cards.size() - 1);
+        if (!Prefs.cinema() && !Prefs.photo()) {
+            Backdrop b = recs.backdrop(cards.get(photoIndex));
+            if (b != null) showBackdrop(b);
+        }
+        heroDirty = true;
+        wake();
+    }
+
     /** O carrossel do Minimalista vai para o próximo (`dir` 1, entra pela direita) ou o anterior (-1, pela esquerda). */
     private void slideMin(int dir) {
         minIndex += dir;
@@ -526,6 +558,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         handler.post(camTick);
         minList = Recs.hasKey(getContext()) ? recs.now() : new ArrayList<>();
         handler.postDelayed(minTick, MIN_EVERY);
+        handler.postDelayed(photoTick, PHOTO_EVERY);
         checkNight(false);
         boolean h24 = Prefs.clock24();
         if (h24 != clock24) {   // 12/24 hours changed in the TV's settings: the clock and the drawer's times again
@@ -579,6 +612,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         handler.removeCallbacks(topTick);
         handler.removeCallbacks(camTick);
         handler.removeCallbacks(minTick);
+        handler.removeCallbacks(photoTick);
         handler.removeCallbacks(reloadSoon);
         handler.removeCallbacks(bars);
         playing.stop();
@@ -2151,6 +2185,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean topChanged = aim(topFocus, !sheetOpen && zone == Z_TOP ? topIndex : -1, snap);
         heroChanged |= aim(cardFocus, !sheetOpen && zone == Z_CARDS && !tvFocus ? cardIndex : -1, snap) | topChanged;
         heroChanged |= aim(cardOpen, cardIndex, snap);
+        if (zone == Z_CARDS && !tvFocus) photoIndex = cardIndex;   // ao sair dos cards, a troca segue do último focado
         float scrollTo = Math.max(0, cardIndex - (Prefs.lateral() ? (camsOn() ? 0 : 2) : camsOn() ? 1 : 3));   // carrossel: até 4 cards (menos no Menu lateral e com as câmeras)
         heroChanged |= cardScroll.target != scrollTo;
         cardScroll.target = scrollTo;
@@ -3252,7 +3287,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         // Picks bring their own background; without them (no TMDB key), your photo if there is one.
         boolean own = !picksOn() && Photos.on(getContext());
-        Backdrop b = own ? Photos.backdrop(getContext(), ownReady) : cards.isEmpty() ? null : recs.backdrop(cards.get(0));
+        photoIndex = Math.min(photoIndex, Math.max(0, cards.size() - 1));
+        Backdrop b = own ? Photos.backdrop(getContext(), ownReady) : cards.isEmpty() ? null : recs.backdrop(cards.get(photoIndex));
         if (b != null || (cards.isEmpty() && !own)) showBackdrop(b);
         heroDirty = true;
         spoken.focusMoved();    // new picks under the focused card
@@ -3514,7 +3550,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final float SIDE_TOP = 230, SIDE_R = 450, LAT_X = 500;
 
     private Recs.Pick cinemaPick() {
-        return cards.isEmpty() ? null : cards.get(Math.min(cardIndex, cards.size() - 1));
+        return cards.isEmpty() ? null : cards.get(Math.min(cinemaIndex(), cards.size() - 1));
+    }
+
+    /** O destaque na foto: o focado; sem foco nos cards, o da troca. */
+    private int cinemaIndex() {
+        return zone == Z_CARDS && !tvFocus ? cardIndex : photoIndex;
     }
 
     /** A foto do título focado cobrindo o alto da tela, escurecida à esquerda e embaixo para o texto. */
@@ -3595,10 +3636,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         cinemaText.setColor(on ? L_INK : WHITE);
         c.drawText(play, x + 32 * k, tmp.centerY() + Ui.halfCap(cinemaText), cinemaText);
         int n = cards.size();
+        int shown = cinemaIndex();
         for (int i = 0; i < n; i++) {   // os pontinhos: quantos destaques e qual está na tela
-            fill.setColor(i == cardIndex ? WHITE : 0x66FFFFFF);
+            fill.setColor(i == shown ? WHITE : 0x66FFFFFF);
             float dx = x + i * 30 * k;
-            c.drawRoundRect(dx, 680 * k, dx + (i == cardIndex ? 22 : 10) * k, 690 * k, 5 * k, 5 * k, fill);
+            c.drawRoundRect(dx, 680 * k, dx + (i == shown ? 22 : 10) * k, 690 * k, 5 * k, 5 * k, fill);
         }
         if (camsOn()) {   // a câmera em janelinha no canto (→ depois do último destaque)
             tvRect.set(1440 * k, 450 * k, CONTENT_R * k, 675 * k);
@@ -4000,6 +4042,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                         break;
                     }
                     cardIndex = next;
+                    handler.removeCallbacks(photoTick);   // mexeu no controle: a próxima troca, 10 s depois
+                    handler.postDelayed(photoTick, PHOTO_EVERY);
                 } else if (Prefs.vitrine() && picksOn() && !tvFocus && rowAfter(tab, dy) >= 0) {
                     selectTab(rowAfter(tab, dy));   // Vitrine: a fileira de cima ou a de baixo
                     cardIndex = 0;
