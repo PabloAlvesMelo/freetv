@@ -52,6 +52,9 @@ final class RemoteKeys {
      */
     static final boolean FILTER_SAFE = !(TCL && Build.VERSION.SDK_INT == Build.VERSION_CODES.R);
 
+    /** The key service runs: where the filter is safe, in an APK that has it (the generic one doesn't, see build.sh). */
+    static final boolean SERVICE = FILTER_SAFE && Config.SENSITIVE_SERVICES;
+
     /** Xiaomi's remote sends one press as a burst of separate presses: a press this soon after the last one is the same. */
     private static final long BURST_MS = 1000;
     private static int lastKey;
@@ -63,7 +66,7 @@ final class RemoteKeys {
 
     /** The key service is on only where the filter is safe, and while a button opens something (else it has no work). */
     static boolean serviceWanted() {
-        if (!supported() || !FILTER_SAFE) return false;
+        if (!supported() || !SERVICE) return false;
         for (int key : Prefs.KEYS) if (!Prefs.keyApp(key).isEmpty()) return true;
         return false;
     }

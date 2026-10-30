@@ -101,6 +101,13 @@ same key, and raise `versionName` (compared number by number with the tag, `v1.1
 refuses a lower one). Before uploading, `apksigner verify --print-certs MeloFreeTV.apk` must show the release
 certificate (`375f866ebea425908e74fcbe1b6b0d35b7cd2a090780364e5f8a2a1309efb7ca`, `Updates.RELEASE_CERT`): TVs refuse
 any other.
+The generic APK has no accessibility service (`RemoteKeyService`) and no notification listener (`NowPlaying`):
+`build.sh --generic` drops both from the manifest and fails if either permission is left (`Config.SENSITIVE_SERVICES`).
+Google Play Protect's enhanced fraud protection (on in Brazil) blocks any app installed from Downloader or a browser that
+declares either, with only an *Entendi* button and no *Install anyway* (tested on a Mi TV Stick, Android 9: with only
+the accessibility service, still blocked). adb installs aren't checked that way, so builds made on a computer keep both.
+In the generic APK the remote's buttons work only on our home screen (`RemoteKeys.SERVICE`), and Now Playing shows
+Unavailable. Never add either back to it, nor `RECEIVE_SMS`/`READ_SMS`, the other permissions that trigger the block.
 
 ## Adapting it to another TV
 

@@ -28,6 +28,11 @@ NAMES = {
     'Asia/Ho_Chi_Minh': 'Ho Chi Minh City',
 }
 
+# Brazil's zones on São Paulo's time (UTC-3): Android's automatic zone picks any of them (a Mi TV Stick in São Paulo
+# got America/Recife), so they all mean São Paulo. Zones with another time (Manaus, Cuiabá...) keep their own city.
+SAO_PAULO = ('America/Araguaina', 'America/Bahia', 'America/Belem', 'America/Fortaleza', 'America/Maceio',
+             'America/Recife', 'America/Santarem')
+
 
 def degrees(text, width):
     """"+4230" or "-0740023" (±DDMM[SS] or ±DDDMM[SS]) → decimal degrees, 2 places."""
@@ -57,7 +62,9 @@ def main():
             parts = line.split()
             if len(parts) == 3 and parts[0] == 'L' and parts[1] in zones and parts[2] not in zones:
                 zones[parts[2]] = '=' + parts[1]
-    out = os.path.join(ROOT, 'app', 'assets', 'zones.json')
+    for zone in SAO_PAULO:
+        zones[zone] = '=America/Sao_Paulo'
+    out =os.path.join(ROOT, 'app', 'assets', 'zones.json')
     with open(out, 'w', encoding='utf-8') as f:
         f.write(json.dumps(zones, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n')
     print('Wrote %s' % os.path.relpath(out, ROOT))

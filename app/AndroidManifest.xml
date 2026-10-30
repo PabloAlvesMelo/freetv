@@ -200,7 +200,8 @@
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <!-- The remote's app buttons from inside any app (Settings > Remote Buttons). Its own process: the system waits for it on
-             every key, so the home screen must never be able to slow it down. -->
+             every key, so the home screen must never be able to slow it down. Not in the generic APK (build.sh): Play
+             Protect blocks sideloaded apps with an accessibility service. -->
         <service
             android:name=".RemoteKeyService"
             android:process=":keys"
@@ -230,7 +231,7 @@
             android:exported="false" />
 
         <!-- Lets the home screen and the screensaver read what apps are playing (their media sessions); it unbinds itself
-             at once, so no process stays up for it. -->
+             at once, so no process stays up for it. Not in the generic APK (build.sh), as with RemoteKeyService. -->
         <service
             android:name=".NowPlaying"
             android:exported="true"

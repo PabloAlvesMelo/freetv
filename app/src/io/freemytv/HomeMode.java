@@ -315,6 +315,7 @@ final class HomeMode {
      * requests run in doesn't matter.
      */
     static void nowPlayingAccess(Context c) {
+        if (!Config.SENSITIVE_SERVICES) return;   // the generic APK has no listener (build.sh)
         ModeJob.schedule(c, ModeJob.PLAYING, null, 0);
     }
 
@@ -333,7 +334,7 @@ final class HomeMode {
     /** The widget as Home Settings (:home) saved it. */
     private static boolean nowPlayingOn() {
         Prefs.reload();
-        return Prefs.nowPlaying();
+        return Config.SENSITIVE_SERVICES && Prefs.nowPlaying();
     }
 
     /** Allows our listener and proves it took (refused, the widget's row shows Unavailable), or takes it back. */

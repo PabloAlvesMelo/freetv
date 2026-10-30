@@ -59,6 +59,7 @@ ASSIST=false; [ "$(prop disable_assistant false)" = "true" ] && ASSIST=true
 CRYPTO=false; [ "$(prop show_crypto true)" = "true" ] && CRYPTO=true
 ANIMATION=false; [ "$(prop hide_animation false)" = "true" ] && ANIMATION=true
 SAVER=true; [ "$(prop screensaver true)" = "false" ] && SAVER=false
+SENSITIVE=true; $GENERIC && SENSITIVE=false
 
 rm -rf out && mkdir -p out/gen/io/freemytv out/classes
 cat > out/gen/io/freemytv/Config.java <<EOF
@@ -87,13 +88,38 @@ final class Config {
     static final boolean HIDE_ANIMATION = $ANIMATION;
     static final boolean SCREENSAVER = $SAVER;   // false: the TV keeps its own
     static final boolean GENERIC = $GENERIC;   // built with --generic, as the APK on GitHub's releases (Updates)
+    static final boolean SENSITIVE_SERVICES = $SENSITIVE;   // the remote's key service and Now Playing's listener
 }
 EOF
+
+# Google Play Protect blocks apps installed from a browser or Downloader that ask for accessibility or notification
+# access (its enhanced fraud protection, on in Brazil and other countries), with no "Install anyway". The generic APK,
+# the one people download, leaves both services out; adb installs aren't blocked, so a build made here keeps them.
+MANIFEST=app/AndroidManifest.xml
+if $GENERIC; then
+  MANIFEST=out/AndroidManifest.xml
+  awk '
+    !inside && /<service/ { inside = 1; open = 1; buf = "" }
+    inside {
+      buf = buf $0 "\n"
+      if (open && />/) { open = 0; if (/\/>[[:space:]]*$/) done = 1 }
+      if (/<\/service>/) done = 1
+      if (done) {
+        if (buf !~ /android:name="\.(NowPlaying|RemoteKeyService)"/) printf "%s", buf
+        inside = 0; done = 0
+      }
+      next
+    }
+    { print }' app/AndroidManifest.xml > "$MANIFEST"
+  if grep -qE 'BIND_(ACCESSIBILITY|NOTIFICATION_LISTENER)_SERVICE' "$MANIFEST"; then
+    echo "The generic manifest still asks for accessibility or notification access." >&2; exit 1
+  fi
+fi
 
 # --- Build
 "$BT/aapt2" compile --dir app/res -o out/res.zip
 # Fonts uncompressed: Android reads them straight from the APK.
-"$BT/aapt2" link -o out/base.apk -I "$AJ" --manifest app/AndroidManifest.xml --java out/gen out/res.zip \
+"$BT/aapt2" link -o out/base.apk -I "$AJ" --manifest "$MANIFEST" --java out/gen out/res.zip \
   --min-sdk-version 26 --target-sdk-version 33 -A app/assets -0 ttf
 # Windows aapt2 packs assets with backslash separators ("assets/symbols\x.png") and Android
 # cannot find them: the home screen loses its icons and fonts. Rename the zip entries to "/".
