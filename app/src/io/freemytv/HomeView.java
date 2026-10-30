@@ -223,9 +223,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (cards.isEmpty()) return;
         photoIndex = Math.min(photoIndex, cards.size() - 1);
         if (!Prefs.cinema() && !Prefs.photo()) {
-            Backdrop b = recs.backdrop(cards.get(photoIndex));
-            if (b != null) showBackdrop(b);
+            Backdrop b = recs.background(cards.get(photoIndex));
+            if (b != null) showBackdrop(b);   // senão, entra quando ficar pronta (onRecs → updateCards)
         }
+        if (cards.size() > 1) recs.background(cards.get((photoIndex + 1) % cards.size()));   // e a seguinte já vai sendo montada
         heroDirty = true;
         wake();
     }
@@ -1136,7 +1137,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         pickIndex = next;
         heroSlide = dir;
         refreshHero(true);
-        Backdrop b = recs.backdrop(currentPick());
+        Backdrop b = recs.background(currentPick());
         if (b != null) showBackdrop(b);
         spoken.focusMoved();
         return true;
@@ -3288,8 +3289,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // Picks bring their own background; without them (no TMDB key), your photo if there is one.
         boolean own = !picksOn() && Photos.on(getContext());
         photoIndex = Math.min(photoIndex, Math.max(0, cards.size() - 1));
-        Backdrop b = own ? Photos.backdrop(getContext(), ownReady) : cards.isEmpty() ? null : recs.backdrop(cards.get(photoIndex));
+        Backdrop b = own ? Photos.backdrop(getContext(), ownReady) : cards.isEmpty() ? null : recs.background(cards.get(photoIndex));
         if (b != null || (cards.isEmpty() && !own)) showBackdrop(b);
+        if (!own && cards.size() > 1) recs.background(cards.get((photoIndex + 1) % cards.size()));   // a próxima da troca já vai sendo montada
         heroDirty = true;
         spoken.focusMoved();    // new picks under the focused card
     }

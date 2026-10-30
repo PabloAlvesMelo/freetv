@@ -172,6 +172,10 @@ final class Recs {
     private final List<Listener> listeners = new ArrayList<>();
     private final Map<String, Poster> posters = new LinkedHashMap<>();   // narrow-card portraits, same keys as images
     private final Map<String, Backdrop> images = new LinkedHashMap<>(16, 0.75f, true);   // this hour's, built and ready to draw
+    // Light design: `images` holds only the cards; the background's frosted and glass versions (~1.4 MB each) are built
+    // just for the photos on the background (the one showing, the one fading out, the next), read again from disk.
+    private final Map<String, Backdrop> backgrounds = new LinkedHashMap<>(4, 0.75f, true);
+    private static final int BACKGROUNDS = 3;
     private final java.util.Set<String> pending = new java.util.HashSet<>();
     private volatile List<Pick> picks = new ArrayList<>();
     private volatile int period = -1;
@@ -352,7 +356,30 @@ final class Recs {
         }
         io.execute(() -> {
             try {
-                loadImage(p);
+                loadImage(p, false);
+            } finally {
+                synchronized (images) { pending.remove(key); }
+            }
+        });
+        return null;
+    }
+
+    /**
+     * The pick's backdrop for the background, with its frosted and glass versions (or null: built in the background,
+     * and the listeners hear when it's ready). In the dark design every backdrop already has them.
+     */
+    Backdrop background(Pick p) {
+        if (!light) return backdrop(p);
+        if (p == null || p.backdrop == null) return null;
+        final String key = "bg:" + p.backdrop;
+        synchronized (images) {
+            Backdrop b = backgrounds.get(p.backdrop);
+            if (b != null) return b;
+            if (!pending.add(key)) return null;
+        }
+        io.execute(() -> {
+            try {
+                loadImage(p, true);
             } finally {
                 synchronized (images) { pending.remove(key); }
             }
@@ -438,6 +465,7 @@ final class Recs {
         light = value;
         synchronized (images) {
             images.clear();
+            backgrounds.clear();
             posters.clear();
         }
     }
@@ -1022,10 +1050,13 @@ final class Recs {
         prune(f.getParentFile());
     }
 
-    /** Reads the photo (≥ the UI's width) and builds the backdrop (Backdrop: cards plus frosted and glass versions). */
-    private void loadImage(Pick p) {
+    /**
+     * Reads the photo (≥ the UI's width) and builds the backdrop: in the light design only the card, or with
+     * `background` the frosted and glass versions too (Recs.background); in the dark design always everything.
+     */
+    private void loadImage(Pick p, boolean background) {
         synchronized (images) {
-            if (images.containsKey(p.backdrop)) return;
+            if ((background ? backgrounds : images).containsKey(p.backdrop)) return;
         }
         File f = imageFile(p);
         try {
@@ -1040,7 +1071,17 @@ final class Recs {
             if (b == null) throw new IOException("unreadable image");
             AppLog.w("backdrop \u201c" + p.title + "\u201d: " + bounds.outWidth + "×" + bounds.outHeight + " → " + Backdrop.W + "×" + Backdrop.H);
             boolean forLight = light;
-            Backdrop backdrop = Backdrop.make(b, forLight);
+            if (forLight && background) {
+                Backdrop full = Backdrop.make(b, true);
+                if (forLight != light) return;
+                synchronized (images) {
+                    backgrounds.put(p.backdrop, full);
+                    while (backgrounds.size() > BACKGROUNDS) backgrounds.remove(backgrounds.keySet().iterator().next());
+                }
+                notifyListeners();
+                return;
+            }
+            Backdrop backdrop = forLight ? Backdrop.card(b) : Backdrop.make(b, false);
             if (forLight != light) return;   // the design changed midway: this one is stale
             Poster poster = forLight ? loadPoster(p) : null;
             synchronized (images) {
@@ -1084,6 +1125,7 @@ final class Recs {
         for (Pick p : now(null)) if (p.backdrop != null) keep.add(p.backdrop);
         synchronized (images) {
             images.keySet().retainAll(keep);
+            backgrounds.keySet().retainAll(keep);
             posters.keySet().retainAll(keep);
         }
     }

@@ -74,6 +74,20 @@ final class Backdrop {
     }
 
     /**
+     * Only the card (light design): the frosted and glass versions (~1.4 MB of int[] each) serve only the photo on
+     * the background, one or two at a time, so Recs builds those just for it (Recs.background).
+     */
+    static Backdrop card(Bitmap src) {
+        Bitmap crop = center(src, (float) W / H);
+        if (crop != src) src.recycle();
+        Bitmap out = Ui.downscale(crop, W, H);
+        if (out != crop) crop.recycle();
+        Bitmap wide = card(out, WIDE_W, WIDE_H);
+        if (wide != out) out.recycle();
+        return new Backdrop(null, null, null, wide, null, null, null, null);
+    }
+
+    /**
      * `own`: one of your photos (Photos). Its background is less blurred than a pick's; behind the clock, date and
      * weather it is whitened (darkened at night) as much as a pick's, so the text stays readable, then less toward the
      * right, so it still reads as your photo. The glass and the drawer stay as they are.
