@@ -619,6 +619,7 @@ public class SettingsActivity extends Activity {
                 String error = state.optString("error");
                 if (!busy() && !error.isEmpty()) status += "  ·  " + error;
                 drawUninstallWarning(c, y + 180 * k);
+                drawComparison(c, y + 330 * k);   // a velocidade e a memória medidas na troca: Original × Melo Free TV
             } else if (focus == M_UPDATES) {
                 status = updatesValue() + "  ·  " + (Updates.ready(updates, installed) ? Ui.tr("OK installs it; Android asks first.") : Ui.tr("OK checks for a new version."));
             } else if (unavailable(focus) != null) {
@@ -709,7 +710,7 @@ public class SettingsActivity extends Activity {
             c.drawText(Ui.tr("COMPARISON"), x, y, header);
             cellValue.setColor(0x73FFFFFF);
             c.drawText(Ui.tr("Original"), colA, y, cellValue);
-            c.drawText("Free My TV", colB, y, cellValue);
+            c.drawText("Melo Free TV", colB, y, cellValue);
             cellValue.setColor(0xD9FFFFFF);
             JSONObject metrics = state.optJSONObject("metrics");
             JSONObject a = metrics == null ? null : metrics.optJSONObject(HomeMode.ORIGINAL);
