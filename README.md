@@ -33,6 +33,37 @@ Na TV, pelo app **Downloader**: digite o código **6272194**
 
 <img src=".github/melo-cinema.jpg" width="880" alt="Layout Cinema: a foto do destaque em tela cheia, com o título, o botão para assistir e a barra de apps embaixo">
 
+## Teste de laboratório: memória
+
+Medido em 30/10/2026 num **Xiaomi Mi TV Stick** (1 GB de RAM, Android 9), com o Melo Free TV 1.1 no layout Clássico
+e os destaques ligados, e depois com a tela de fábrica (*Original*). Em cada caso, a TV parada na tela inicial; os
+números vêm do próprio Android (`/proc/meminfo` e `dumpsys meminfo`, pelo ADB).
+
+| | Melo Free TV | Original (Google TV) |
+|---|---|---|
+| **Memória disponível para os apps** | **~350 MB** | **~200 MB** |
+| Estado de memória do Android | normal | baixo (*low*) |
+| Tela inicial | **~33 MB** | **127–143 MB** |
+| Memória comprimida em uso (ZRAM) | 30 MB | 60 MB |
+
+O que roda a mais com a tela de fábrica:
+
+| Processo | Memória | O que é |
+|---|---|---|
+| `tvlauncher` | 127–143 MB | a tela inicial do Google TV, com as fileiras de recomendações |
+| `katniss` | 43–47 MB | o Google Assistente (no Melo Free TV, desligado por padrão) |
+| `setupwraith` | 26 MB | o app de configuração inicial do Google TV |
+| `mediashell` | 12 MB | o Chromecast embutido (no Melo Free TV, desligado por padrão) |
+| `tvrecommendations` | 12 MB | as recomendações e propagandas da tela de fábrica |
+
+Ou seja, cerca de **140 MB a mais livres para os apps** de streaming, uns 14% da memória do aparelho. Os números
+variam com o que está aberto: a medição do *Original* foi feita logo depois da troca, quando a memória livre ainda
+subia (de 188 para 214 MB em um minuto); com mais tempo parada, a diferença deve ficar perto de 100 a 130 MB. A
+memória usada pelo sistema (Google Play Services, Android e serviços da Xiaomi, ~140 MB) é a mesma nos dois casos.
+
+Na própria TV, **Início** mostra uma comparação parecida, medida na hora de cada troca: o tempo do botão Início e a
+memória de cada tela inicial.
+
 ## Instalar
 
 Você precisa de uma TV ou aparelho com Android TV ou Google TV (Android 8 ou mais novo). Testado no Xiaomi Mi TV Stick.
