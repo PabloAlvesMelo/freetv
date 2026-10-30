@@ -619,7 +619,6 @@ public class SettingsActivity extends Activity {
                 String error = state.optString("error");
                 if (!busy() && !error.isEmpty()) status += "  ·  " + error;
                 drawUninstallWarning(c, y + 180 * k);
-                drawComparison(c, y + 330 * k);   // a velocidade e a memória medidas na troca: Original × Melo Free TV
             } else if (focus == M_UPDATES) {
                 status = updatesValue() + "  ·  " + (Updates.ready(updates, installed) ? Ui.tr("OK installs it; Android asks first.") : Ui.tr("OK checks for a new version."));
             } else if (unavailable(focus) != null) {
@@ -765,6 +764,8 @@ public class SettingsActivity extends Activity {
             c.drawText(Ui.tr("Switching takes a few seconds; the screen blinks while it measures."), LIST_X * k + 30 * k,
                     (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 40) * k, hint);
             drawUninstallWarning(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 110) * k);
+            // A velocidade e a memória medidas na troca: Original × Melo Free TV.
+            drawComparison(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 260) * k);
         }
 
         /** O Android não avisa o app antes de desinstalar: sem voltar ao Original, a TV fica sem tela inicial. */
