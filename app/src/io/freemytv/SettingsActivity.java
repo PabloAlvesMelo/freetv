@@ -714,8 +714,8 @@ public class SettingsActivity extends Activity {
             JSONObject metrics = state.optJSONObject("metrics");
             JSONObject a = metrics == null ? null : metrics.optJSONObject(HomeMode.ORIGINAL);
             JSONObject b = metrics == null ? null : metrics.optJSONObject(HomeMode.FREE);
-            String[][] rows = {{Ui.tr("Home button"), "homeMs"}, {Ui.tr("Free memory"), "memAvailableMB"},
-                    {Ui.tr("Home screen memory"), "homePssMB"}};
+            String[][] rows = {{Ui.tr("Home button"), "homeMs"}, {Ui.tr("Memory in use"), "memUsedMB"},
+                    {Ui.tr("Free memory"), "memAvailableMB"}, {Ui.tr("Home screen memory"), "homePssMB"}};
             for (int i = 0; i < rows.length; i++) {
                 float base = y + (46 + 40 * i) * k;
                 c.drawText(rows[i][0], x, base, cellLabel);
@@ -764,8 +764,10 @@ public class SettingsActivity extends Activity {
             c.drawText(Ui.tr("Switching takes a few seconds; the screen blinks while it measures."), LIST_X * k + 30 * k,
                     (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 40) * k, hint);
             drawUninstallWarning(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 110) * k);
-            // A velocidade e a memória medidas na troca: Original × Melo Free TV.
-            drawComparison(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 260) * k);
+            // A velocidade e a memória medidas na troca (Original × Melo Free TV), os destaques e os últimos avisos.
+            float y = drawComparison(c, (LIST_TOP + 20 + 2 * (CHOICE_H + ROW_GAP) + 210) * k);
+            y = drawRecs(c, y + 26 * k);
+            drawNotices(c, y + 40 * k);
         }
 
         /** O Android não avisa o app antes de desinstalar: sem voltar ao Original, a TV fica sem tela inicial. */
@@ -785,10 +787,19 @@ public class SettingsActivity extends Activity {
         }
 
         private static String metric(JSONObject m, String key) {
+            if (key.equals("memUsedMB")) {   // em uso: o total da TV menos a livre
+                if (m == null || !m.has("memTotalMB") || !m.has("memAvailableMB")) return "—";
+                return megabytes(m.optLong("memTotalMB") - m.optLong("memAvailableMB"));
+            }
             if (m == null || !m.has(key)) return "—";
             long v = m.optLong(key);
             if (key.equals("homeMs")) return Ui.trf("{n} ms", "n", v);
-            if (key.equals("memAvailableMB") && v >= 1024) return Ui.trf("{n} GB", "n", String.format(Ui.locale(), "%.2f", v / 1024.0));
+            if (key.equals("memAvailableMB")) return megabytes(v);
+            return Ui.trf("{n} MB", "n", v);
+        }
+
+        private static String megabytes(long v) {
+            if (v >= 1024) return Ui.trf("{n} GB", "n", String.format(Ui.locale(), "%.2f", v / 1024.0));
             return Ui.trf("{n} MB", "n", v);
         }
 

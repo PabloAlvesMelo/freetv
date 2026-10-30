@@ -454,10 +454,19 @@ final class HomeMode {
                         + "In Settings → Network & Internet, forget the network and connect again (networks out of range don't "
                         + "show there: Claude Code can remove them from your computer), then try once more."));
             }
-            if (metrics(latest, ORIGINAL) == null && !home.isEmpty()) {
+            JSONObject was = metrics(latest, ORIGINAL);
+            if (was == null && !home.isEmpty()) {
                 putMetric(c, ORIGINAL, "at", System.currentTimeMillis());   // first: a retry after TCL's TGuard killed the job skips it (#277)
                 busy(c, Ui.tr("Measuring the original home screen…"));
                 measure(c, adb, ORIGINAL, true);
+            } else if (!home.isEmpty() && !was.has("memTotalMB")) {
+                // Its memory comes 2 min after going back to Original: switched sooner, it's read now (only meminfo,
+                // nothing opens, so TGuard has nothing to kill).
+                try {
+                    measureMemory(c, adb, ORIGINAL);
+                } catch (Exception e) {
+                    AppLog.w("memory measurement of the original failed: " + e.getMessage());
+                }
             }
             busy(c, Ui.tr("Switching the home screen and screensaver…"));
             Watchdog.clear(c);
@@ -528,7 +537,7 @@ final class HomeMode {
             }
             notice(c, Ui.trf("Free My TV is on: new home screen and screensaver, {n} apps turned off.", "n", disabled.size()));
             busy(c, Ui.tr("Measuring Free My TV…"));
-            measure(c, adb, FREE, false);
+            measure(c, adb, FREE, true);   // the memory now, and again 2 min later (ModeJob.MEMORY), once it settled
             done(c, null);
             homeAfter(adb);
             ModeJob.schedule(c, ModeJob.MEMORY, FREE, 120_000);
@@ -601,7 +610,7 @@ final class HomeMode {
                 notice(c, Ui.trf("Original mode, but I couldn't turn back on: {list}.", "list", String.join(", ", problems)));
             }
             busy(c, Ui.tr("Measuring the original home screen…"));
-            measure(c, adb, ORIGINAL, false);
+            measure(c, adb, ORIGINAL, true);
             done(c, null);
             homeAfter(adb);
             ModeJob.schedule(c, ModeJob.MEMORY, ORIGINAL, 120_000);
@@ -1051,8 +1060,11 @@ final class HomeMode {
     }
 
     private static void measureMemory(Context c, Adb adb, String mode) throws IOException, JSONException {
-        Matcher avail = Pattern.compile("MemAvailable:\\s+(\\d+) kB").matcher(adb.shell("cat /proc/meminfo"));
+        String meminfo = adb.shell("cat /proc/meminfo");
+        Matcher avail = Pattern.compile("MemAvailable:\\s+(\\d+) kB").matcher(meminfo);
         if (avail.find()) putMetric(c, mode, "memAvailableMB", Long.parseLong(avail.group(1)) / 1024);
+        Matcher all = Pattern.compile("MemTotal:\\s+(\\d+) kB").matcher(meminfo);
+        if (all.find()) putMetric(c, mode, "memTotalMB", Long.parseLong(all.group(1)) / 1024);   // em uso = total − livre
         long pss = 0;
         String home = packageOf(originalHome(state(c)));
         String[] processes = FREE.equals(mode) ? new String[] {PKG + ":home"}
