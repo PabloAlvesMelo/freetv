@@ -79,8 +79,8 @@ build-tools 34.0.0 and android-34: a newer SDK here can let through a call that 
    (`HomeMode.ASSISTANT`), Chromecast built-in (`HomeMode.CAST`, `com.google.android.apps.mediashell`) and navigation
    sounds start **off** (`Prefs.assistant`, `Prefs.cast`, `Prefs.sounds`): tell them, and to check *Melo Free TV* →
    *Configurações* after installing to turn on what they use. Their choice is kept across updates and restarts (the
-   boot and update check re-applies the Chromecast one). *Original* and the watchdog turn the Chromecast back on; the
-   assistant follows its option, so they turn it on before going back to *Original* or uninstalling. On TCL, the remote's Netflix,
+   boot and update check re-applies both). *Original* and the watchdog turn both back on (`HomeMode.applyOptions`),
+   except one the TV already had off before Free My TV (`keptOff`); switching to Free My TV applies the options again. On TCL, the remote's Netflix,
    YouTube and Prime buttons keep working through a small accessibility service that only reads those buttons
    (*Free My TV* → *Remote Buttons* picks what each opens); *Original* turns it off. On TCL's Android 11 there's no
    service (the TV moved the volume twice with it), so there the buttons work only on Free My TV's home screen. On

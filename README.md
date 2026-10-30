@@ -87,8 +87,8 @@ Para liberar memória (em aparelhos de 1 GB, como o Mi TV Stick, cada MB conta),
 - **Sons de navegação:** sem cliques ao mexer no controle.
 
 Se precisar de algum deles, ligue em **Melo Free TV > Configurações**. A escolha fica gravada e vale também depois de
-atualizações e reinícios. Voltar para *Original* em **Início** liga o Chromecast de novo; o assistente de voz segue a
-opção, então ligue-o antes se for voltar para o *Original* ou desinstalar.
+atualizações e reinícios. Voltar para *Original* em **Início** liga tudo de novo, como veio de fábrica (o assistente
+de voz e o Chromecast também); ao voltar para o Melo Free TV, vale de novo o que está nas Configurações.
 
 Vale a pena olhar esse menu logo depois de instalar: ali também ficam o título da tela, o idioma, a temperatura, os
 destaques e a tela de descanso.
@@ -112,9 +112,6 @@ Só se a instalação pelo Downloader (passo 2) não der certo. Você vai precis
 **Volte para a tela original antes de desinstalar:** **Início > Original**. Se o app for desinstalado no modo Melo
 Free TV, a TV fica sem tela inicial e o aparelho pode ficar inutilizado. Não nos responsabilizamos por danos causados
 por desinstalar o app sem esse cuidado.
-
-Se for usar o assistente de voz depois, ligue-o antes em **Configurações > Assistente de voz**: o *Original* traz de
-volta a tela inicial, os apps e o Chromecast, mas o assistente segue essa opção.
 
 ## Doação
 

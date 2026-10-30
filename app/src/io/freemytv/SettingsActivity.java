@@ -631,6 +631,51 @@ public class SettingsActivity extends Activity {
             }
         }
 
+        /** O comentário da opção focada, embaixo da lista: o que ela faz e como mudar. */
+        private String rowHint(int from) {
+            if (screen == HOME_SETTINGS) {
+                switch (hsRow(from + focus)) {
+                    case TITLE_ROW: return "OK muda o nome que aparece no alto da tela inicial.";
+                    case 0: return "OK abre a lista de idiomas. Automático segue o idioma da TV.";
+                    case 1: return "← → escolhem °C, °F ou automático (pelo país da TV).";
+                    case 4: return "Um clique suave ao mexer e abrir itens com o controle.";
+                    case PICKS_ROW: return "OK abre: quantos destaques cada aba mostra e de quais apps eles vêm.";
+                    case SAVER_ROW: return "Ligado, OK na tela de descanso abre o título que ela mostra. Desligado, só fecha.";
+                    case ASSIST_ROW: return "Ligado, o botão do microfone abre o Google Assistente. Desligado, ele não faz nada (e libera memória).";
+                    case CAST_ROW: return "Ligado, dá para transmitir do celular para a TV. Desligado, a TV some da lista (e libera memória).";
+                    case PHOTOS_ROW: return Photos.files(getContext()).isEmpty() ? "OK: envie fotos do celular pelo QR code (mesma rede Wi-Fi)."
+                            : "OK envia mais fotos pelo celular ou apaga. As setas ligam ou desligam.";
+                    case CAMS_ROW: return "As câmeras ONVIF na tela inicial. Sem o Onvifer, abre a Play Store para instalar.";
+                    case CAMS_EDIT_ROW: return "OK procura as câmeras da rede e escolhe quais mostrar.";
+                    case CAMS_RESET_ROW: return "OK apaga as câmeras salvas (pede confirmação antes).";
+                    case WEATHER_ROW: return "O clima da cidade na tela inicial e na gaveta de baixo.";
+                    case CITY_ROW: return "OK procura a cidade do clima pelo nome.";
+                    case FORECAST_ROW: return "← → escolhem a previsão das próximas horas ou dos próximos dias.";
+                    case FILES_ROW: return "Atalho para o FX File Explorer. Sem ele, abre a Play Store para instalar.";
+                    case IPTV_ROW: return "OK baixa a lista para Download. No TiviMate: Adicionar playlist > M3U > Selecionar playlist local.";
+                    case IPTV_BACK_ROW: return "OK troca a lista atual pela anterior (e guarda a atual como backup).";
+                    default:
+                        if (hsRow(from + focus) == keyRow()) return "OK mostra um QR code: leia com a câmera do celular e cole a chave na página (mesma rede), ou digite.";
+                        return Ui.tr("OK or the arrows change the value.");
+                }
+            }
+            if (screen == PICKS) return focus == 0 ? "← → escolhem quantos destaques cada aba mostra (de 3 a 6)."
+                    : "OK escolhe de quais apps de streaming vêm os destaques.";
+            if (screen == THEME_SCREEN) return focus == 0 ? "← → alternam entre um tema só e o automático (um de dia, outro de noite)."
+                    : "← → passam pelos oito temas.";
+            if (screen == SAVER_SCREEN) return focus == 0 ? "← → mudam o tempo sem usar o controle até a tela de descanso começar."
+                    : "OK mostra a tela de descanso agora. Qualquer tecla volta.";
+            if (screen == POWER) {
+                if (unavailable(focus) != null) return Ui.tr("OK or the arrows change the value.");
+                switch (powerRow()) {
+                    case P_SLEEP: return "Desliga a TV sozinha depois do tempo escolhido. OK abre a lista, ← → mudam.";
+                    case P_SHOW: return "Mostra na tela quanto tempo falta para a TV desligar.";
+                    default: return "Onde o tempo restante aparece na tela. OK abre a lista, ← → mudam.";
+                }
+            }
+            return Ui.tr("OK or the arrows change the value.");
+        }
+
         /** O destaque da Doação: âmbar, ou rosa-coral nos temas de fundo marrom (Âmbar e Mostarda), onde o âmbar some. */
         private int donateColor() {
             String id = HomeData.get(getContext()).theme(System.currentTimeMillis()).id;
@@ -2686,18 +2731,7 @@ public class SettingsActivity extends Activity {
             // A list longer than the screen says where we are in it, as the app picker does. Photos say where they come
             // from; on the Sleep Timer screen, the timer and Position open a list on OK.
             String where = rows < labels.length ? (from + focus + 1) + " / " + labels.length + "  ·  " : "";
-            c.drawText(where + (screen == HOME_SETTINGS && hsRow(from + focus) == PHOTOS_ROW ? (Photos.files(getContext()).isEmpty()
-                    ? "OK: envie fotos do celular pelo QR code (mesma rede Wi-Fi)."
-                    : "OK envia mais fotos pelo celular ou apaga. As setas ligam ou desligam.")
-                    : screen == POWER && powerRow() != P_SHOW && unavailable(focus) == null ? Ui.tr("OK opens the list. ← → change the value.")
-                    : screen == SAVER_SCREEN && focus == 0 ? "← → mudam o tempo sem usar o controle até a tela de descanso começar."
-                    : screen == SAVER_SCREEN ? "OK mostra a tela de descanso agora. Qualquer tecla volta."
-                    : screen == HOME_SETTINGS && hsRow(from + focus) == keyRow() ? "OK mostra um QR code: leia com a câmera do celular e cole a chave na página (mesma rede), ou digite."
-                    : screen == HOME_SETTINGS && hsRow(from + focus) == ASSIST_ROW ? "Ligado, o botão do microfone abre o Google Assistente. Desligado, ele não faz nada (e libera memória)."
-                    : screen == HOME_SETTINGS && hsRow(from + focus) == CAST_ROW ? "Ligado, dá para transmitir do celular para a TV. Desligado, a TV some da lista (e libera memória)."
-                    : screen == HOME_SETTINGS && hsRow(from + focus) == IPTV_BACK_ROW ? "OK troca a lista atual pela anterior (e guarda a atual como backup)."
-                    : screen == HOME_SETTINGS && hsRow(from + focus) == IPTV_ROW ? "OK baixa a lista para Download. No TiviMate: Adicionar playlist > M3U > Selecionar playlist local."
-                    : Ui.tr("OK or the arrows change the value.")), LIST_X * k + 30 * k, hy, hint);
+            c.drawText(where + rowHint(from), LIST_X * k + 30 * k, hy, hint);
             if (keys) {
                 c.drawText(RemoteKeys.VESTEL ? Ui.tr("YouTube, Prime Video and Google Play: the TV itself controls those buttons.")
                         : RemoteKeys.KTC ? Ui.tr("Netflix, YouTube and Prime Video: the TV itself controls those buttons.")

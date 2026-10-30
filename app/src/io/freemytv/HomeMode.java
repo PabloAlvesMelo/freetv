@@ -355,7 +355,8 @@ final class HomeMode {
 
     /**
      * Configurações > Assistente de voz: desligado (o padrão), o Google Assistente fica desativado no sistema e o botão
-     * do microfone não faz nada; ligado, ele volta. Pedido ao mudar a opção, no boot e depois de uma atualização.
+     * do microfone não faz nada; ligado, ele volta. Só no modo Free My TV: o Original e o watchdog o ligam sempre.
+     * Pedido ao mudar a opção, na troca, no boot e depois de uma atualização.
      */
     static void assistant(Context c) {
         ModeJob.schedule(c, ModeJob.ASSIST, null, 0);
@@ -365,17 +366,48 @@ final class HomeMode {
         if (AMAZON) return;
         synchronized (RUN) {
             Prefs.reload();
-            boolean on = Prefs.assistant();
             try (Adb adb = Adb.connect(app, 10_000, null)) {
-                Set<String> present = packages(adb, ""), off = packages(adb, "-d");
-                for (String pkg : ASSISTANT) {
-                    if (!present.contains(pkg) || off.contains(pkg) != on) continue;   // não instalado, ou já como deve
-                    String out = adb.shell(on ? "pm enable " + pkg : "pm disable-user --user 0 " + pkg).trim();
-                    AppLog.w("assistente " + (on ? "ligado" : "desligado") + ": " + pkg + " " + out);
-                }
+                JSONObject s = state(app);
+                applyAssistant(adb, Prefs.assistant() || !FREE.equals(s.optString("mode")) || s.optBoolean("homeReverted"),
+                        stringList(s, "keptOff"));
             } catch (IOException e) {
                 AppLog.w("assistente: " + e.getMessage());   // o ADB não respondeu: tenta de novo na próxima vez
             }
+        }
+    }
+
+    private static void applyAssistant(Adb adb, boolean on, List<String> keptOff) throws IOException {
+        Set<String> present = packages(adb, ""), off = packages(adb, "-d");
+        for (String pkg : ASSISTANT) {
+            if (!present.contains(pkg) || off.contains(pkg) != on) continue;   // não instalado, ou já como deve
+            if (on && keptOff.contains(pkg)) continue;   // já estava desligado antes do Free My TV: fica assim
+            if (!on && wifiOwnersHave(adb, pkg)) continue;
+            String out = adb.shell(on ? "pm enable " + pkg : "pm disable-user --user 0 " + pkg).trim();
+            AppLog.w("assistente " + (on ? "ligado" : "desligado") + ": " + pkg + " " + out);
+        }
+    }
+
+    /** Desligar um app que salvou uma rede Wi-Fi a apaga: na dúvida (o serviço não respondeu), fica ligado. */
+    private static boolean wifiOwnersHave(Adb adb, String pkg) throws IOException {
+        Set<String> owners = wifiOwners(adb);
+        if (owners != null && !owners.contains(pkg)) return false;
+        AppLog.w(pkg + " fica ligado: " + (owners == null ? "não deu para ver quem salvou o Wi-Fi" : "salvou uma rede Wi-Fi"));
+        return true;
+    }
+
+    /** O assistente e o Chromecast como dizem as Configurações (`on`: os dois ligados, no Original e no watchdog). */
+    private static void applyOptions(Context c, Adb adb, boolean on) {
+        Prefs.reload();
+        List<String> keptOff = stringList(state(c), "keptOff");
+        try {
+            applyAssistant(adb, on || Prefs.assistant(), keptOff);
+        } catch (IOException e) {
+            AppLog.w("assistente: " + e.getMessage());
+        }
+        try {
+            applyCast(adb, on || Prefs.cast(), keptOff);
+        } catch (IOException e) {
+            AppLog.w("chromecast: " + e.getMessage());
         }
     }
 
@@ -397,22 +429,18 @@ final class HomeMode {
             Prefs.reload();
             try (Adb adb = Adb.connect(app, 10_000, null)) {
                 JSONObject s = state(app);
-                applyCast(adb, Prefs.cast() || !FREE.equals(s.optString("mode")) || s.optBoolean("homeReverted"));
+                applyCast(adb, Prefs.cast() || !FREE.equals(s.optString("mode")) || s.optBoolean("homeReverted"),
+                        stringList(s, "keptOff"));
             } catch (IOException e) {
                 AppLog.w("chromecast: " + e.getMessage());   // o ADB não respondeu: fica como estava
             }
         }
     }
 
-    private static void applyCast(Adb adb, boolean on) throws IOException {
+    private static void applyCast(Adb adb, boolean on, List<String> keptOff) throws IOException {
         if (!packages(adb, "").contains(CAST) || packages(adb, "-d").contains(CAST) != on) return;   // não há, ou já como deve
-        if (!on) {
-            Set<String> owners = wifiOwners(adb);
-            if (owners == null || owners.contains(CAST)) {
-                AppLog.w("chromecast fica ligado: " + (owners == null ? "não deu para ver quem salvou o Wi-Fi" : "salvou uma rede Wi-Fi"));
-                return;
-            }
-        }
+        if (on && keptOff.contains(CAST)) return;   // já estava desligado antes do Free My TV: fica assim
+        if (!on && wifiOwnersHave(adb, CAST)) return;
         String out = adb.shell(on ? "pm enable " + CAST : "pm disable-user --user 0 " + CAST).trim();
         AppLog.w("chromecast " + (on ? "ligado" : "desligado") + ": " + out);
     }
@@ -573,11 +601,7 @@ final class HomeMode {
                     AppLog.w("remote buttons service: " + e.getMessage());
                 }
             }
-            try {
-                applyCast(adb, Prefs.cast());
-            } catch (IOException e) {
-                AppLog.w("chromecast: " + e.getMessage());
-            }
+            applyOptions(c, adb, false);
             notice(c, Ui.trf("Free My TV is on: new home screen and screensaver, {n} apps turned off.", "n", disabled.size()));
             busy(c, Ui.tr("Measuring Free My TV…"));
             measure(c, adb, FREE, true);   // the memory now, and again 2 min later (ModeJob.MEMORY), once it settled
@@ -596,7 +620,7 @@ final class HomeMode {
             String home = originalHome(s);
             Set<String> toEnable = new HashSet<>(stringList(s, "disabled"));
             for (String pkg : targets(home, originalDream(s), true)) {
-                if (!Arrays.asList(DEBLOAT).contains(pkg) && !Arrays.asList(ASSISTANT).contains(pkg)) toEnable.add(pkg);
+                if (!Arrays.asList(DEBLOAT).contains(pkg)) toEnable.add(pkg);   // o assistente também (applyOptions)
             }
             toEnable.removeAll(stringList(s, "keptOff"));
             Set<String> present = packages(adb, "");
@@ -616,11 +640,7 @@ final class HomeMode {
                 String out = adb.shell("pm enable " + pkg);
                 if (!out.contains("new state: enabled")) failed.add(pkg);
             }
-            try {
-                applyCast(adb, true);   // o Original traz o Chromecast de volta, desligado ou não nos Ajustes
-            } catch (IOException e) {
-                AppLog.w("chromecast: " + e.getMessage());
-            }
+            applyOptions(c, adb, true);   // o Original traz o assistente e o Chromecast de volta, desligados ou não nos Ajustes
             busy(c, Ui.tr("Restoring the original home screen…"));
             boolean homeOk = restoreHome(adb, home);
             if (hasJm(adb) && !setJmHome(adb, s.optString("originalJmHome", ""))) homeOk = false;
@@ -723,11 +743,7 @@ final class HomeMode {
                     AppLog.w("could not give the home screen back");
                     return;
                 }
-                try {
-                    applyCast(adb, true);   // the way back brings the Chromecast back too
-                } catch (IOException e) {
-                    AppLog.w("chromecast: " + e.getMessage());
-                }
+                applyOptions(app, adb, true);   // the way back brings the assistant and the Chromecast back too
                 // Google TV's setup app only now, with its home screen back (alone, its recovery screen takes Home).
                 if (!keptOff.contains(GOOGLE_SETUP) && adb.shell("pm path " + GOOGLE_SETUP).contains("package:")) {
                     adb.shell("pm enable " + GOOGLE_SETUP);
@@ -791,11 +807,8 @@ final class HomeMode {
                 } catch (IOException e) {
                     AppLog.w("now playing: " + e.getMessage());
                 }
-                try {   // as Settings say (off by default: an install that was already on Free My TV gets it here)
-                    applyCast(adb, Prefs.cast() || s.optBoolean("homeReverted"));
-                } catch (IOException e) {
-                    AppLog.w("chromecast: " + e.getMessage());
-                }
+                // As Settings say (off by default: an install that was already on Free My TV gets it here).
+                applyOptions(app, adb, s.optBoolean("homeReverted"));
                 Set<String> present = packages(adb, "");
                 Set<String> disabledNow = packages(adb, "-d");
                 Set<String> owners = wifiOwners(adb);
