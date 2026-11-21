@@ -1,5 +1,5 @@
 #EXTM3U x-tvg-url="https://iptv-epg.org/files/epg-br.xml" url-tvg="https://iptv-epg.org/files/epg-br.xml"
-#EXTINF:-1 tvg-id="OnePiece.us@BR" tvg-name="One Piece BR" tvg-logo="https://i.imgur.com/XsvbAWR.png" group-title="Desenhos",One Piece BR [TESTE]
+#EXTINF:-1 tvg-id="OnePiece.us@BR" tvg-name="One Piece BR" tvg-logo="https://i.imgur.com/XsvbAWR.png" group-title="Desenhos",One Piece BR
 https://jmp2.uk/plu-624b1c8d4321e200073ee421.m3u8
 #EXTINF:-1 tvg-id="PlutoTVAnimeAcao.us@BR" tvg-name="Pluto TV Anime Acao" tvg-logo="https://images.pluto.tv/channels/604b79c558393100078faeef/colorLogoPNG.png" group-title="Desenhos",Pluto TV Anime Acao
 https://jmp2.uk/plu-604b79c558393100078faeef.m3u8
