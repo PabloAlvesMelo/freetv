@@ -185,10 +185,11 @@ entries; its system pieces are in `PROTECTED`. USB debugging opens ADB on 5555 t
   the release key (`Updates.RELEASE_CERT`); Android's installer always asks. A build made on a computer (not
   `--generic`, or another key) checks only when asked and never downloads.
 - "Abrir ao iniciar" (`Prefs.startupApp`, Settings > Configurações) opens one app once per boot, never on every Home
-  press (else Home would trap the TV in that app). `HomeReceiver` drops a `startup-pending` flag file on
-  `BOOT_COMPLETED` (main process); `HomeActivity.onResume` (`:home`) consumes it once — deletes it before launching,
-  and ignores it after 5 minutes of uptime so a late switch to Free My TV mode can't spring a surprise launch. A file,
-  not SharedPreferences, since the two processes must share it. `""` = none.
+  press (else Home would trap the TV in that app). `HomeActivity.maybeStartupApp` fires from `onResume` when
+  `elapsedRealtime` is still inside `STARTUP_WINDOW` (5 min) — not from `BOOT_COMPLETED`, which arrives after the
+  launcher is already on screen, so a flag consumed at `onResume` would only fire after the first time the person opens
+  and leaves Settings. `Prefs.startupBoot` (the boot, `currentTimeMillis − elapsedRealtime`) keeps it to once per boot
+  if `:home` restarts inside the window. `""` = none.
 - The TMDB key given on the TV (`Prefs.tmdbKey`) wins over `Config.TMDB_KEY`; read it through `Recs.key()`. Its screen
   serves a one-time page (`KeyPage`: the TV's private IPv4 on Wi-Fi or Ethernet, never a VPN's or a public one, a random
   port and token, one POST, 5 minutes, and only while that screen shows) behind a QR code (`Qr`, byte mode, level M, after

@@ -151,6 +151,10 @@ final class Prefs {
     static String startupApp() { return app == null ? "" : sp().getString("startupApp", "").trim(); }
     static void setStartupApp(String pkg) { put("startupApp", pkg == null ? "" : pkg.trim()); }
 
+    /** O boot (currentTimeMillis − elapsedRealtime) em que "Abrir ao iniciar" já abriu: fecha a porta a repetir. */
+    static long startupBoot() { return app == null ? 0 : sp().getLong("startupBoot", 0); }
+    static void setStartupBoot(long boot) { sp().edit().putLong("startupBoot", boot).apply(); }   // sem version++: não redesenha a tela
+
     // MARK: - Picks from
 
     private static String offList;

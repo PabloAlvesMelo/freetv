@@ -2743,7 +2743,30 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         boolean opened = HomeApps.open(activity, it, this, Math.round(r.left), Math.round(r.top),
                 Math.round(r.width()), Math.round(r.height()));
-        if (!opened) showToast(Ui.trf("Couldn't open {app}.", "app", it.label));
+        if (!opened) {
+            // TV online sem o TiviMate e sem TV do aparelho (uma caixa sem sintonizador): leva à Play Store instalá-lo.
+            if (it.kind == HomeApps.LIVE_TV) openTiviMate();
+            else showToast(Ui.trf("Couldn't open {app}.", "app", it.label));
+        }
+    }
+
+    /** Sem app de TV ao vivo: abre a página do TiviMate na Play Store (ou no navegador). */
+    private void openTiviMate() {
+        click.open();
+        android.content.Intent store = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("market://details?id=" + TV_PKG)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(store);
+        } catch (RuntimeException e) {
+            android.content.Intent web = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=" + TV_PKG))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                getContext().startActivity(web);
+            } catch (RuntimeException e2) {
+                showToast("Instale o TiviMate (Play Store) para assistir TV online.");
+            }
+        }
     }
 
     // MARK: - Holding OK: All Apps puts the app on the shelf or takes it off; on the shelf, the app is lifted to move
@@ -3806,7 +3829,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void openTv() {
         android.content.Intent i = getContext().getPackageManager().getLeanbackLaunchIntentForPackage(TV_PKG);
         if (i == null) i = getContext().getPackageManager().getLaunchIntentForPackage(TV_PKG);
-        if (i == null) return;
+        if (i == null) { openTiviMate(); return; }   // sem o TiviMate: leva à Play Store instalá-lo
         click.open();
         i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(i);

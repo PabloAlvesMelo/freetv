@@ -2,7 +2,6 @@ package io.freemytv;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -13,9 +12,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.widget.TextView;
-
-import java.io.File;
-import java.io.IOException;
 
 /**
  * The Free My TV home screen (Android's "Home" role in Free My TV mode). It runs in the :home process: if it crashes,
@@ -71,23 +67,21 @@ public class HomeActivity extends Activity {
         Updates.tellOnce(this);   // an update the week's check got ready: said once
     }
 
-    /** "Abrir ao iniciar": the receiver dropped a flag on boot; open the chosen app once, then clear it. */
-    static final String BOOT_FLAG = "startup-pending";
-
-    static void markBoot(Context c) {
-        try {
-            //noinspection ResultOfMethodCallIgnored
-            new File(c.getFilesDir(), BOOT_FLAG).createNewFile();
-        } catch (IOException ignored) {
-        }
-    }
+    /**
+     * "Abrir ao iniciar": open the chosen app once, shortly after boot, never on later Home presses (else Home would
+     * trap the TV in it). Detected by elapsedRealtime (small only right after boot) because the launcher shows before
+     * BOOT_COMPLETED arrives; `startupBoot` keeps it to once per boot even if :home restarts within the window.
+     */
+    private static final long STARTUP_WINDOW = 5 * 60_000L;   // boot-to-home is seconds; this is generous
+    private static boolean startupTried;                      // once per process
 
     private void maybeStartupApp() {
-        File flag = new File(getFilesDir(), BOOT_FLAG);
-        if (!flag.exists()) return;
-        //noinspection ResultOfMethodCallIgnored
-        flag.delete();   // once per boot, whether or not an app is set (and before launching: never twice)
-        if (SystemClock.elapsedRealtime() > 5 * 60_000L) return;   // not right after boot: don't surprise with a late launch
+        if (startupTried) return;
+        startupTried = true;
+        if (SystemClock.elapsedRealtime() > STARTUP_WINDOW) return;   // a cold start long after boot isn't a boot
+        long boot = System.currentTimeMillis() - SystemClock.elapsedRealtime();
+        if (Math.abs(boot - Prefs.startupBoot()) < 60_000L) return;   // already opened it for this boot
+        Prefs.setStartupBoot(boot);
         String pkg = Prefs.startupApp();
         if (pkg.isEmpty() || pkg.equals(getPackageName())) return;
         PackageManager pm = getPackageManager();
