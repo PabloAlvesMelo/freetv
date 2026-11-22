@@ -26,6 +26,8 @@ Na TV, pelo app **Downloader**: digite o código **6272194**
 - **Tela de descanso** com as fotos dos destaques ou com as suas fotos, enviadas pelo celular com um QR code.
 - **Extras:** relógio e clima, câmeras ONVIF, arquivos (FX File Explorer), lista IPTV, desligamento automático e ícones de
   atalho no topo.
+- **Abrir ao iniciar:** escolha um app para abrir sozinho quando a TV liga (uma vez por boot); depois, o botão Início
+  volta à tela inicial normalmente.
 - **Atualiza sozinho:** procura versões novas neste repositório e instala depois de você confirmar.
 - **Seguro:** não precisa de root e não desinstala nada da TV. A opção *Original* devolve a tela inicial de fábrica.
 

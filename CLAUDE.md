@@ -184,6 +184,11 @@ entries; its system pieces are in `PROTECTED`. USB debugging opens ADB on 5555 t
   asset (its size and SHA-256 as GitHub lists them), newer than the app (versionName and versionCode) and signed with
   the release key (`Updates.RELEASE_CERT`); Android's installer always asks. A build made on a computer (not
   `--generic`, or another key) checks only when asked and never downloads.
+- "Abrir ao iniciar" (`Prefs.startupApp`, Settings > Configurações) opens one app once per boot, never on every Home
+  press (else Home would trap the TV in that app). `HomeReceiver` drops a `startup-pending` flag file on
+  `BOOT_COMPLETED` (main process); `HomeActivity.onResume` (`:home`) consumes it once — deletes it before launching,
+  and ignores it after 5 minutes of uptime so a late switch to Free My TV mode can't spring a surprise launch. A file,
+  not SharedPreferences, since the two processes must share it. `""` = none.
 - The TMDB key given on the TV (`Prefs.tmdbKey`) wins over `Config.TMDB_KEY`; read it through `Recs.key()`. Its screen
   serves a one-time page (`KeyPage`: the TV's private IPv4 on Wi-Fi or Ethernet, never a VPN's or a public one, a random
   port and token, one POST, 5 minutes, and only while that screen shows) behind a QR code (`Qr`, byte mode, level M, after
