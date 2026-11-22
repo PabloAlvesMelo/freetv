@@ -11,6 +11,8 @@ import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 /**
@@ -22,6 +24,7 @@ public class HomeActivity extends Activity {
     /** Opens All Apps (a remote's All Apps button, RemoteKeys). */
     static final String EXTRA_ALL_APPS = "io.freemytv.ALL_APPS";
     private HomeView home;
+    private WhatsNewView whatsNew;              // o painel de Novidades, enquanto aberto
     private int prefsVersion = Prefs.version;   // settings changed while we were away: start over
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -62,9 +65,42 @@ public class HomeActivity extends Activity {
         }
         if (home != null) {
             home.resume();
-            maybeStartupApp();   // "Abrir ao iniciar": uma vez por boot, nunca a cada Home
+            maybeWhatsNew();     // "Novidades": uma vez, após uma atualização
+            if (whatsNew == null) maybeStartupApp();   // "Abrir ao iniciar": uma vez por boot, nunca a cada Home
         }
         Updates.tellOnce(this);   // an update the week's check got ready: said once
+    }
+
+    /**
+     * "Novidades": after an update to a newer version, show the highlights once over the home. A fresh install (no
+     * version recorded yet) only records the version, without a panel; the next version bump shows it.
+     */
+    private static boolean whatsNewChecked;   // once per process
+
+    private void maybeWhatsNew() {
+        if (whatsNewChecked) return;
+        whatsNewChecked = true;
+        String installed = Updates.installedVersion(this), shown = Prefs.whatsNewVersion();
+        if (installed.isEmpty()) return;
+        if (shown.isEmpty()) {           // fresh install: record, no panel
+            Prefs.setWhatsNewVersion(installed);
+            return;
+        }
+        if (Updates.compare(installed, shown) <= 0) return;   // not a newer version
+        Prefs.setWhatsNewVersion(installed);                  // record now: show once
+        if (WhatsNewView.ITEMS.length == 0) return;
+        whatsNew = new WhatsNewView(this, this::dismissWhatsNew);
+        addContentView(whatsNew, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        whatsNew.requestFocus();
+        whatsNew.announceForAccessibility(WhatsNewView.TITLE);
+    }
+
+    private void dismissWhatsNew() {
+        if (whatsNew == null) return;
+        ViewGroup parent = (ViewGroup) whatsNew.getParent();
+        if (parent != null) parent.removeView(whatsNew);
+        whatsNew = null;
+        if (home != null) home.requestFocus();
     }
 
     /**
@@ -120,6 +156,10 @@ public class HomeActivity extends Activity {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (whatsNew != null) {   // modal: the panel handles keys while it's up
+            if (whatsNew.onKey(event)) return true;
+            return super.dispatchKeyEvent(event);
+        }
         if (RemoteKeys.onKey(this, event)) return true;
         if (home != null && home.onKey(event)) return true;
         return super.dispatchKeyEvent(event);

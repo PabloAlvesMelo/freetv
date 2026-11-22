@@ -155,6 +155,12 @@ final class Prefs {
     static long startupBoot() { return app == null ? 0 : sp().getLong("startupBoot", 0); }
     static void setStartupBoot(long boot) { sp().edit().putLong("startupBoot", boot).apply(); }   // sem version++: não redesenha a tela
 
+    // MARK: - Novidades
+
+    /** Última versão cuja tela de Novidades já foi registrada ("" = instalação nova, ainda sem registro). */
+    static String whatsNewVersion() { return app == null ? "" : sp().getString("whatsNewVersion", ""); }
+    static void setWhatsNewVersion(String v) { sp().edit().putString("whatsNewVersion", v == null ? "" : v).apply(); }
+
     // MARK: - Picks from
 
     private static String offList;
