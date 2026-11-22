@@ -145,6 +145,12 @@ final class Prefs {
     static String title() { return sp().getString("title", Config.TITLE.isEmpty() ? "Melo TV" : Config.TITLE); }
     static void setTitle(String t) { put("title", t); }
 
+    // MARK: - Abrir ao iniciar
+
+    /** Pacote aberto uma vez a cada boot, logo que a tela inicial aparece ("" = nenhum). */
+    static String startupApp() { return app == null ? "" : sp().getString("startupApp", "").trim(); }
+    static void setStartupApp(String pkg) { put("startupApp", pkg == null ? "" : pkg.trim()); }
+
     // MARK: - Picks from
 
     private static String offList;

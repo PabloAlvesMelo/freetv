@@ -1,14 +1,21 @@
 package io.freemytv;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.widget.TextView;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * The Free My TV home screen (Android's "Home" role in Free My TV mode). It runs in the :home process: if it crashes,
@@ -57,8 +64,42 @@ public class HomeActivity extends Activity {
             recreate();   // a new language or city: draw everything again
             return;
         }
-        if (home != null) home.resume();
+        if (home != null) {
+            home.resume();
+            maybeStartupApp();   // "Abrir ao iniciar": uma vez por boot, nunca a cada Home
+        }
         Updates.tellOnce(this);   // an update the week's check got ready: said once
+    }
+
+    /** "Abrir ao iniciar": the receiver dropped a flag on boot; open the chosen app once, then clear it. */
+    static final String BOOT_FLAG = "startup-pending";
+
+    static void markBoot(Context c) {
+        try {
+            //noinspection ResultOfMethodCallIgnored
+            new File(c.getFilesDir(), BOOT_FLAG).createNewFile();
+        } catch (IOException ignored) {
+        }
+    }
+
+    private void maybeStartupApp() {
+        File flag = new File(getFilesDir(), BOOT_FLAG);
+        if (!flag.exists()) return;
+        //noinspection ResultOfMethodCallIgnored
+        flag.delete();   // once per boot, whether or not an app is set (and before launching: never twice)
+        if (SystemClock.elapsedRealtime() > 5 * 60_000L) return;   // not right after boot: don't surprise with a late launch
+        String pkg = Prefs.startupApp();
+        if (pkg.isEmpty() || pkg.equals(getPackageName())) return;
+        PackageManager pm = getPackageManager();
+        Intent intent = pm.getLeanbackLaunchIntentForPackage(pkg);
+        if (intent == null) intent = pm.getLaunchIntentForPackage(pkg);
+        if (intent == null) return;   // uninstalled since it was chosen
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            AppLog.w("couldn't open startup app " + pkg + ": " + e.getMessage());
+        }
     }
 
     @Override protected void onPause() {

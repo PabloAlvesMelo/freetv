@@ -212,6 +212,8 @@ public class SettingsActivity extends Activity {
         private boolean editingTop;
         private int pickFor, pickCurrent, pickScroll;   // pickFor: the remote button (index + 1)
         private static final int PICK_CITY = 0, PICK_LANGUAGE = -1, PICK_SLEEP = -2, PICK_PLACE = -3;
+        /** O seletor de app de "Abrir ao iniciar" (tratado antes de qualquer comparação com PICK_SLEEP). */
+        private static final int PICK_STARTUP = -10;
         /** Sleep Timer's pickers (PICK_SLEEP and below): their choices as {value, name}, and the value now. */
         private final List<String[]> choices = new ArrayList<>();
         private String choiceNow = "";
@@ -557,7 +559,7 @@ public class SettingsActivity extends Activity {
                 case PHOTO_SEND: case PHOTO_PICK: return M_EXTRAS;
                 case SAVER_SCREEN: return M_SAVER;
                 case PICKS: case PICK_FROM: return M_SETTINGS;
-                case PICKER: return pickFor <= PICK_SLEEP ? M_POWER : pickFor == PICK_CITY ? M_EXTRAS : M_SETTINGS;
+                case PICKER: return pickFor == PICK_STARTUP ? M_SETTINGS : pickFor <= PICK_SLEEP ? M_POWER : pickFor == PICK_CITY ? M_EXTRAS : M_SETTINGS;
                 case SHELF_EDIT: return editingTop ? M_TOP : M_SHELF;
                 case POWER: return M_POWER;
                 case THEME_SCREEN: return M_THEMES;
@@ -643,6 +645,7 @@ public class SettingsActivity extends Activity {
                     case SAVER_ROW: return "Ligado, OK na tela de descanso abre o título que ela mostra. Desligado, só fecha.";
                     case ASSIST_ROW: return "Ligado, o botão do microfone abre o Google Assistente. Desligado, ele não faz nada (e libera memória).";
                     case CAST_ROW: return "Ligado, dá para transmitir do celular para a TV. Desligado, a TV some da lista (e libera memória).";
+                    case STARTUP_ROW: return "OK escolhe um app para abrir sozinho quando a TV liga. Nenhum: não abre nada.";
                     case PHOTOS_ROW: return Photos.files(getContext()).isEmpty() ? "OK: envie fotos do celular pelo QR code (mesma rede Wi-Fi)."
                             : "OK envia mais fotos pelo celular ou apaga. As setas ligam ou desligam.";
                     case CAMS_ROW: return "As câmeras ONVIF na tela inicial. Sem o Onvifer, abre a Play Store para instalar.";
@@ -960,7 +963,11 @@ public class SettingsActivity extends Activity {
                         if (e.getRepeatCount() == 0) backDown = true;
                     } else {
                         if (backDown && !e.isCanceled()) {
-                            if (screen == PICKER && pickFor <= PICK_SLEEP) {
+                            if (screen == PICKER && pickFor == PICK_STARTUP) {
+                                focus = hsIndex(STARTUP_ROW);
+                                pickScroll = 0;
+                                screen = HOME_SETTINGS;
+                            } else if (screen == PICKER && pickFor <= PICK_SLEEP) {
                                 focus = powerFocus(pickFor == PICK_SLEEP ? P_SLEEP : P_WHERE);
                                 pickScroll = 0;   // the picker's scroll isn't this short list's
                                 screen = POWER;
@@ -1013,7 +1020,8 @@ public class SettingsActivity extends Activity {
          *  forecast, now playing, quotes, one row per coin, then the TMDB key and updates (the last row). */
         private static final int PHOTOS_ROW = 3, PICKS_ROW = 5, SAVER_ROW = 6, WEATHER_ROW = 7, CITY_ROW = 8, FORECAST_ROW = 9,
                 PLAYING_ROW = 10, TITLE_ROW = 11, CLOCK_ROW = 12, CAMS_ROW = 13, CAMS_EDIT_ROW = 14, CAMS_RESET_ROW = 15,
-                FILES_ROW = 16, IPTV_ROW = 17, IPTV_BACK_ROW = 18, ASSIST_ROW = 19, CAST_ROW = 20, QUOTES_ROW = -1, COIN_ROWS = 21;   // sem cotações: sem linha de widget nem de moedas
+                FILES_ROW = 16, IPTV_ROW = 17, IPTV_BACK_ROW = 18, ASSIST_ROW = 19, CAST_ROW = 20, STARTUP_ROW = 21,
+                QUOTES_ROW = -1, COIN_ROWS = 22;   // sem cotações: sem linha de widget nem de moedas
         /** Home Settings rows on screen at once (what fits above the hints at 1080p); a longer list scrolls. */
         private static final int SETTINGS_VISIBLE = 10;
 
@@ -1025,7 +1033,7 @@ public class SettingsActivity extends Activity {
         private int[] hsMap() {
             List<Integer> r = new ArrayList<>();
             if (hsGroup == 0) {
-                for (int x : new int[] {TITLE_ROW, 0, 1, 4, PICKS_ROW, SAVER_ROW, ASSIST_ROW, CAST_ROW}) r.add(x);
+                for (int x : new int[] {TITLE_ROW, 0, 1, 4, PICKS_ROW, SAVER_ROW, ASSIST_ROW, CAST_ROW, STARTUP_ROW}) r.add(x);
             } else {
                 r.add(PHOTOS_ROW);
                 r.add(CAMS_ROW);
@@ -1092,6 +1100,7 @@ public class SettingsActivity extends Activity {
             l.add("Voltar à lista anterior");
             l.add("Assistente de voz");
             l.add("Chromecast embutido");
+            l.add("Abrir ao iniciar");
             l.add(Ui.tr("TMDB key"));
             l.add(Ui.tr("Updates"));
             return l.toArray(new String[0]);
@@ -1104,6 +1113,18 @@ public class SettingsActivity extends Activity {
 
         private int keyRow() {
             return updatesRow() - 1;
+        }
+
+        /** "Abrir ao iniciar": "Nenhum", o nome do app escolhido, ou "Não instalado" se ele saiu. */
+        private String startupValue() {
+            String pkg = Prefs.startupApp();
+            if (pkg.isEmpty()) return "Nenhum";
+            PackageManager pm = getContext().getPackageManager();
+            try {
+                return pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+            } catch (PackageManager.NameNotFoundException e) {
+                return Ui.tr("Not installed");
+            }
         }
 
         /** The TMDB key row: "Not set", or the key's last 4 characters (all that's ever shown of it). */
@@ -1148,6 +1169,7 @@ public class SettingsActivity extends Activity {
             v[FILES_ROW] = onOff(Prefs.files());
             v[ASSIST_ROW] = onOff(Prefs.assistant());
             v[CAST_ROW] = onOff(Prefs.cast());
+            v[STARTUP_ROW] = startupValue();
             v[IPTV_ROW] = iptvStatus.isEmpty() ? "Baixar ›" : iptvStatus;
             v[IPTV_BACK_ROW] = !iptvBackStatus.isEmpty() ? iptvBackStatus : iptvBackup().exists() ? "Restaurar ›" : "Sem backup";
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
@@ -1440,6 +1462,7 @@ public class SettingsActivity extends Activity {
                     return;
                 case 4: Prefs.setSounds(!Prefs.sounds()); break;
                 case PICKS_ROW: return;
+                case STARTUP_ROW: return;   // OK abre o seletor de apps
                 case SAVER_ROW: Prefs.setSaverWatch(!Prefs.saverWatch()); break;
                 case WEATHER_ROW: Prefs.setWeather(!Prefs.weather()); break;
                 case CITY_ROW: return;
@@ -2616,6 +2639,11 @@ public class SettingsActivity extends Activity {
                     pickLabels.add(code.equals("auto") ? Ui.tr("Automatic") : Ui.languageName(code));
                 }
                 pickCurrent = java.util.Arrays.asList(choices).indexOf(Prefs.language());
+            } else if (which == PICK_STARTUP) {
+                loadApps();
+                pickLabels.add("Nenhum");                      // appPkgs[0] é "": aqui "Nenhum" em vez de "Nothing"
+                pickLabels.addAll(appLabels.subList(1, appLabels.size()));
+                pickCurrent = appPkgs.indexOf(Prefs.startupApp());
             } else if (which <= PICK_SLEEP) {
                 pickCurrent = -1;
                 for (int i = 0; i < choices.size(); i++) {
@@ -2638,6 +2666,7 @@ public class SettingsActivity extends Activity {
             Paint heading = Ui.text(Ui.displaySemibold, 34 * k, 0xFFFFFFFF);
             String title = pickFor == PICK_CITY ? Ui.tr("City")
                     : pickFor == PICK_LANGUAGE ? Ui.tr("Language")
+                    : pickFor == PICK_STARTUP ? "Abrir ao iniciar"
                     : pickFor == PICK_SLEEP ? Ui.tr("Sleep Timer") : pickFor == PICK_PLACE ? Ui.tr("Position")
                     : keyLabels()[pickFor - 1];
             c.drawText(title, LIST_X * k + 30 * k, (LIST_TOP - 24) * k, heading);
@@ -2766,6 +2795,12 @@ public class SettingsActivity extends Activity {
                 focus = hsIndex(CITY_ROW);
                 pickScroll = 0;
                 screen = HOME_SETTINGS;
+            } else if (screen == PICKER && pickFor == PICK_STARTUP) {
+                int at = pickScroll + focus;
+                Prefs.setStartupApp(at == 0 ? "" : appPkgs.get(at));   // linha 0 = "Nenhum"
+                focus = hsIndex(STARTUP_ROW);
+                pickScroll = 0;
+                screen = HOME_SETTINGS;
             } else if (screen == PICKER && pickFor <= PICK_SLEEP) {
                 pickPower();
             } else if (screen == PICKER && pickFor == PICK_LANGUAGE) {
@@ -2788,6 +2823,8 @@ public class SettingsActivity extends Activity {
                 openPicker(focus + 1);
             } else if (screen == HOME_SETTINGS && hsRow(pickScroll + focus) == 0) {
                 openPicker(PICK_LANGUAGE);
+            } else if (screen == HOME_SETTINGS && hsRow(pickScroll + focus) == STARTUP_ROW) {
+                openPicker(PICK_STARTUP);
             } else if (screen == HOME_SETTINGS && hsRow(pickScroll + focus) == CITY_ROW) {
                 askCity();
                 return;
