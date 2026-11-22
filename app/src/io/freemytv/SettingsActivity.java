@@ -13,6 +13,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -655,8 +656,14 @@ public class SettingsActivity extends Activity {
                     case CITY_ROW: return "OK procura a cidade do clima pelo nome.";
                     case FORECAST_ROW: return "← → escolhem a previsão das próximas horas ou dos próximos dias.";
                     case FILES_ROW: return "Atalho para o FX File Explorer. Sem ele, abre a Play Store para instalar.";
-                    case IPTV_ROW: return "OK baixa a lista para Download. No TiviMate: Adicionar playlist > M3U > Selecionar playlist local.";
-                    case IPTV_BACK_ROW: return "OK troca a lista atual pela anterior (e guarda a atual como backup).";
+                    case IPTV_ROW: {
+                        String base = "OK baixa a lista para Download. No TiviMate: Adicionar playlist > M3U > Selecionar playlist local.";
+                        return iptvStatus.isEmpty() || "Baixando…".equals(iptvStatus) ? base : iptvStatus + "  ·  " + base;
+                    }
+                    case IPTV_BACK_ROW: {
+                        String base = "OK troca a lista atual pela anterior (e guarda a atual como backup).";
+                        return iptvBackStatus.isEmpty() ? base : iptvBackStatus + "  ·  " + base;
+                    }
                     default:
                         if (hsRow(from + focus) == keyRow()) return "OK mostra um QR code: leia com a câmera do celular e cole a chave na página (mesma rede), ou digite.";
                         return Ui.tr("OK or the arrows change the value.");
@@ -1170,8 +1177,9 @@ public class SettingsActivity extends Activity {
             v[ASSIST_ROW] = onOff(Prefs.assistant());
             v[CAST_ROW] = onOff(Prefs.cast());
             v[STARTUP_ROW] = startupValue();
-            v[IPTV_ROW] = iptvStatus.isEmpty() ? "Baixar ›" : iptvStatus;
-            v[IPTV_BACK_ROW] = !iptvBackStatus.isEmpty() ? iptvBackStatus : iptvBackup().exists() ? "Restaurar ›" : "Sem backup";
+            // O rótulo acionável fica sempre na linha (o "›" mostra que dá OK); o resultado/erro vai para a dica de baixo.
+            v[IPTV_ROW] = "Baixando…".equals(iptvStatus) ? "Baixando…" : "Baixar ›";
+            v[IPTV_BACK_ROW] = iptvHasBackup() ? "Restaurar ›" : "Sem backup";
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
             for (int i = COIN_ROWS; i < v.length - 2; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
             v[v.length - 2] = keyValue();
@@ -2402,6 +2410,7 @@ public class SettingsActivity extends Activity {
 
         private static final String FILES_APP = "nextapp.fx";   // o FX File Explorer
         private static final String IPTV_URL = "https://raw.githubusercontent.com/PabloAlvesMelo/freetv/main/tv/lista.m3u";
+        private static final String IPTV_NAME = "MeloFreeTV-lista.m3u", IPTV_BACK = "MeloFreeTV-lista-anterior.m3u";
         private String iptvStatus = "", iptvBackStatus = "";
 
         private static java.io.File iptvFile() {
@@ -2412,8 +2421,85 @@ public class SettingsActivity extends Activity {
             return new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "MeloFreeTV-lista-anterior.m3u");
         }
 
-        /** Troca a lista atual pela anterior: as duas trocam de nome, então dá para desfazer com outro OK. */
+        // Android 10+ (API 29): a pasta Download é por MediaStore, sem a permissão de armazenamento (que nem é mais
+        // concedível). O TiviMate lê a pasta Download normalmente. Android ≤ 9 usa iptvFile()/iptvBackup() direto.
+
+        /** A entrada de uma lista pelo nome na pasta Download (uma que este app criou), ou null. */
+        private android.net.Uri iptvMediaUri(String name) {
+            android.net.Uri coll = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+            try (android.database.Cursor cur = getContext().getContentResolver().query(coll,
+                    new String[] {android.provider.MediaStore.MediaColumns._ID},
+                    android.provider.MediaStore.MediaColumns.DISPLAY_NAME + "=?", new String[] {name}, null)) {
+                if (cur != null && cur.moveToFirst()) {
+                    return android.content.ContentUris.withAppendedId(coll, cur.getLong(0));
+                }
+            }
+            return null;
+        }
+
+        /** Grava `data` na lista `name` em Download (cria ou substitui o conteúdo). */
+        private void iptvMediaWrite(String name, byte[] data) throws IOException {
+            android.net.Uri uri = iptvMediaUri(name);
+            if (uri == null) {
+                android.content.ContentValues v = new android.content.ContentValues();
+                v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
+                v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "audio/x-mpegurl");
+                v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
+                uri = getContext().getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                if (uri == null) throw new IOException("sem acesso à pasta Download");
+            }
+            try (java.io.OutputStream o = getContext().getContentResolver().openOutputStream(uri, "wt")) {
+                if (o == null) throw new IOException("não abriu a lista");
+                o.write(data);
+            }
+        }
+
+        /** O conteúdo da lista `name` em Download, ou null se não existe. */
+        private byte[] iptvMediaRead(String name) {
+            android.net.Uri uri = iptvMediaUri(name);
+            if (uri == null) return null;
+            try (java.io.InputStream in = getContext().getContentResolver().openInputStream(uri);
+                 java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream()) {
+                if (in == null) return null;
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+                return bos.toByteArray();
+            } catch (IOException e) {
+                return null;
+            }
+        }
+
+        private void iptvMediaDelete(String name) {
+            android.net.Uri uri = iptvMediaUri(name);
+            if (uri != null) getContext().getContentResolver().delete(uri, null, null);
+        }
+
+        /** Há uma lista anterior para restaurar (MediaStore no Android 10+, arquivo no ≤ 9). */
+        private boolean iptvHasBackup() {
+            return Build.VERSION.SDK_INT >= 29 ? iptvMediaUri(IPTV_BACK) != null : iptvBackup().exists();
+        }
+
+        /** Troca a lista atual pela anterior: as duas trocam, então dá para desfazer com outro OK. */
         private void restoreIptv() {
+            if (Build.VERSION.SDK_INT >= 29) {
+                byte[] back = iptvMediaRead(IPTV_BACK);
+                if (back == null) {
+                    iptvBackStatus = "Sem backup";
+                } else {
+                    try {
+                        byte[] cur = iptvMediaRead(IPTV_NAME);
+                        iptvMediaWrite(IPTV_NAME, back);
+                        if (cur != null) iptvMediaWrite(IPTV_BACK, cur); else iptvMediaDelete(IPTV_BACK);
+                        iptvBackStatus = "Lista anterior restaurada";
+                        iptvStatus = "";
+                    } catch (IOException e) {
+                        iptvBackStatus = "Não foi possível trocar";
+                    }
+                }
+                invalidate();
+                return;
+            }
             java.io.File cur = iptvFile(), back = iptvBackup(), tmp = new java.io.File(cur.getParentFile(), "MeloFreeTV-lista.tmp");
             if (!back.exists()) {
                 iptvBackStatus = "Sem backup";
@@ -2439,11 +2525,13 @@ public class SettingsActivity extends Activity {
             }
         }
 
-        /** Baixa a lista IPTV do repositório para a pasta do app (Android/data/io.freemytv/files), sem pedir permissão. */
+        /** Baixa a lista IPTV do repositório para a pasta Download; a de antes vira o backup (Voltar à lista anterior). */
         private void downloadIptv() {
             if ("Baixando…".equals(iptvStatus)) return;
-            // A pasta Download pede a permissão de armazenamento (Android 9): a TV pergunta uma vez.
-            if (getContext().checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            // Android ≤ 9 escreve o arquivo direto e precisa da permissão de armazenamento (a TV pergunta uma vez).
+            // Android 10+ usa o MediaStore, que não pede permissão (e a WRITE_EXTERNAL_STORAGE nem é concedível lá).
+            if (Build.VERSION.SDK_INT < 29
+                    && getContext().checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 activity.requestPermissions(new String[] {android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 7);
                 iptvStatus = "Permita o acesso e aperte OK de novo";
@@ -2455,26 +2543,37 @@ public class SettingsActivity extends Activity {
             new Thread(() -> {
                 String result;
                 try {
-                    java.io.File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
-                    if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("sem a pasta Download");
-                    java.io.File out = iptvFile(), part = new java.io.File(dir, "MeloFreeTV-lista.part");
                     java.net.HttpURLConnection con = (java.net.HttpURLConnection) new java.net.URL(IPTV_URL).openConnection();
                     con.setConnectTimeout(8000);
                     con.setReadTimeout(15000);
                     if (con.getResponseCode() != 200) throw new java.io.IOException("o repositório respondeu " + con.getResponseCode());
-                    try (java.io.InputStream in = con.getInputStream(); java.io.OutputStream o = new java.io.FileOutputStream(part)) {
+                    java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                    try (java.io.InputStream in = con.getInputStream()) {
                         byte[] buf = new byte[8192];
                         int n;
-                        while ((n = in.read(buf)) > 0) o.write(buf, 0, n);
+                        while ((n = in.read(buf)) > 0) bytes.write(buf, 0, n);
                     }
                     con.disconnect();
+                    if (bytes.size() == 0) throw new java.io.IOException("lista vazia");
                     // Só troca com a lista já baixada inteira: a de antes vira o backup (Voltar à lista anterior).
-                    java.io.File back = iptvBackup();
-                    if (out.exists()) {
-                        if (back.exists() && !back.delete()) throw new java.io.IOException("não apagou o backup antigo");
-                        if (!out.renameTo(back)) throw new java.io.IOException("não guardou o backup");
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        byte[] current = iptvMediaRead(IPTV_NAME);
+                        if (current != null) iptvMediaWrite(IPTV_BACK, current);
+                        iptvMediaWrite(IPTV_NAME, bytes.toByteArray());
+                    } else {
+                        java.io.File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+                        if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("sem a pasta Download");
+                        java.io.File out = iptvFile(), part = new java.io.File(dir, "MeloFreeTV-lista.part");
+                        try (java.io.OutputStream o = new java.io.FileOutputStream(part)) {
+                            bytes.writeTo(o);
+                        }
+                        java.io.File back = iptvBackup();
+                        if (out.exists()) {
+                            if (back.exists() && !back.delete()) throw new java.io.IOException("não apagou o backup antigo");
+                            if (!out.renameTo(back)) throw new java.io.IOException("não guardou o backup");
+                        }
+                        if (!part.renameTo(out)) throw new java.io.IOException("não salvou a lista");
                     }
-                    if (!part.renameTo(out)) throw new java.io.IOException("não salvou a lista");
                     handler.post(() -> iptvBackStatus = "");
                     result = "Salva em Download/MeloFreeTV-lista.m3u";
                 } catch (Exception e) {
