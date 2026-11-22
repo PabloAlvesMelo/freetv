@@ -2443,7 +2443,9 @@ public class SettingsActivity extends Activity {
             if (uri == null) {
                 android.content.ContentValues v = new android.content.ContentValues();
                 v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
-                v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "audio/x-mpegurl");
+                // Genérico de propósito: um MIME de playlist (audio/x-mpegurl) faz o MediaProvider recusar a pasta
+                // Download ("Primary directory download not allowed"); octet-stream é permitido lá e mantém o nome .m3u.
+                v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream");
                 v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS);
                 uri = getContext().getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                 if (uri == null) throw new IOException("sem acesso à pasta Download");
@@ -2577,6 +2579,7 @@ public class SettingsActivity extends Activity {
                     handler.post(() -> iptvBackStatus = "");
                     result = "Salva em Download/MeloFreeTV-lista.m3u";
                 } catch (Exception e) {
+                    AppLog.w("iptv: não baixou: " + e);
                     result = "Não baixou: " + e.getMessage();
                 }
                 String r = result;
