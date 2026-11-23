@@ -573,9 +573,8 @@ final class HomeApps {
                     intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(it.uri)).addCategory(Intent.CATEGORY_BROWSABLE).setPackage(it.pkg);
                 }
                 break;
-            case LIVE_TV:   // TV online: o TiviMate; sem ele, a TV ao vivo do aparelho
+            case LIVE_TV:   // TV online: o TiviMate; sem ele, intent fica null e a HomeView leva à Play Store (openTiviMate)
                 intent = launchIntent(a.getPackageManager(), "ar.tvplayer.tv");
-                if (intent == null) intent = liveTv(a);
                 break;
             case INPUT:
                 if (HomeMode.AMAZON && fireInput(a, it)) return true;

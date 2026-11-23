@@ -2744,7 +2744,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean opened = HomeApps.open(activity, it, this, Math.round(r.left), Math.round(r.top),
                 Math.round(r.width()), Math.round(r.height()));
         if (!opened) {
-            // TV online sem o TiviMate e sem TV do aparelho (uma caixa sem sintonizador): leva à Play Store instalá-lo.
+            // TV online sem o TiviMate instalado: leva à Play Store instalá-lo.
             if (it.kind == HomeApps.LIVE_TV) openTiviMate();
             else showToast(Ui.trf("Couldn't open {app}.", "app", it.label));
         }

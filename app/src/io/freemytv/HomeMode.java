@@ -73,6 +73,7 @@ final class HomeMode {
      */
     static final String[] DEBLOAT = {
         "com.google.android.play.games", "com.google.android.youtube.tvmusic",        // Play Games, YouTube Music
+        "com.google.android.videos",                                                  // Google Play Filmes e TV (descontinuado)
         // TCL
         "com.tcl.magiconnectfree", "com.tcl.miracast",                                // screen mirroring apps
         "com.tcl.waterfall.overseas", "com.tcl.channelplus",                          // TCL Channel and its Live TV
@@ -101,6 +102,13 @@ final class HomeMode {
 
     /** The voice assistant, only with disable_assistant=true in config.properties (the mic button stops working). */
     static final String[] ASSISTANT = {"com.google.android.katniss", "com.android.hotwordenrollment.okgoogle"};
+
+    /**
+     * Turned off only on a streaming stick/box (no TV inputs, noTvInputs): PatchWall is Xiaomi's input picker and
+     * Live Channels the AOSP input host, both pointless without HDMI or a tuner, and the person asked for them off.
+     * A real TV keeps them (it has inputs). Recorded like any other disable, so Original turns them back on.
+     */
+    static final String[] STICK_DEBLOAT = {"com.mitv.tvhome.atv", "com.google.android.tv"};
 
     /** Never turned off, not even by mistake (picture, sound, inputs, remote, store). Checked before every disable. */
     private static final Set<String> PROTECTED = new HashSet<>(Arrays.asList(
@@ -221,6 +229,26 @@ final class HomeMode {
         while (m.find()) keep.add(m.group(1));
         if (!keep.isEmpty()) AppLog.w("kept on, the TV's inputs or remote need them: " + String.join(", ", sorted(keep)));
         return keep;
+    }
+
+    /**
+     * A streaming stick/box: no TvInputService backed by TV hardware, so there are no HDMI or tuner inputs to switch
+     * to (a real TV always has at least one). Not just "no service": some apps register a *software* TvInputService
+     * for preview channels (Google Play Movies' com.google.android.videos has two), and at switch time it's still on
+     * (DEBLOAT turns it off later), so "No services found" would read false on a stick. The hardware inputs are the
+     * ones whose package holds TV_INPUT_HARDWARE (neededByTv), so a stick is "a service list with none of those".
+     * false when the check can't run (an older shell, or the permission read didn't finish): then nothing extra goes off.
+     */
+    private static boolean noTvInputs(Adb adb) throws IOException {
+        String out = adb.shell("cmd package query-services --brief -a android.media.tv.TvInputService 2>&1; echo END");
+        if (!out.contains("END")) return false;              // the command didn't run: not treated as a stick
+        if (out.contains("No services found")) return true;  // no TvInputService at all
+        Set<String> pkgs = new HashSet<>();
+        Matcher m = Pattern.compile("(?m)^\\s*([\\w.]+)/").matcher(out);   // the "package/Service" lines
+        while (m.find()) pkgs.add(m.group(1));
+        if (pkgs.isEmpty()) return false;
+        Set<String> hardware = neededByTv(adb, pkgs);        // the inputs backed by TV hardware
+        return hardware != null && hardware.isEmpty();       // a stick: services exist, but none is a hardware input
     }
 
     /** One switch at a time (jobs can overlap: a boot check and a button press). */
@@ -544,7 +572,8 @@ final class HomeMode {
             JSONObject started = state(c);
             started.put("mode", FREE).put("homeReverted", false).put("setupHome", setupHome);
             save(c, started);
-            List<String> targets = targets(home, dream, setupHome);
+            boolean stick = noTvInputs(adb);   // a stick/box also turns off PatchWall and Live Channels (STICK_DEBLOAT)
+            List<String> targets = targets(home, dream, setupHome, stick);
             Set<String> disabled = new HashSet<>(stringList(state(c), "disabled"));
             Set<String> present = packages(adb, "");
             Set<String> keptOff = new HashSet<>(stringList(state(c), "keptOff"));
@@ -552,7 +581,7 @@ final class HomeMode {
             // list lives in the TV's settings too, since an uninstall erases our state file).
             Set<String> ours = recorded(adb);
             for (String pkg : packages(adb, "-d")) {
-                if (targets(home, dream, true).contains(pkg) && !disabled.contains(pkg) && !ours.contains(pkg)) keptOff.add(pkg);
+                if (targets(home, dream, true, stick).contains(pkg) && !disabled.contains(pkg) && !ours.contains(pkg)) keptOff.add(pkg);
             }
             keptOff.removeAll(ours);
             JSONObject before = state(c);
@@ -619,7 +648,9 @@ final class HomeMode {
             busy(c, Ui.tr("Turning the apps back on…"));
             String home = originalHome(s);
             Set<String> toEnable = new HashSet<>(stringList(s, "disabled"));
-            for (String pkg : targets(home, originalDream(s), true)) {
+            // stick=false: what we actually turned off is in state's "disabled" (re-enabled below); this is only the
+            // extra non-DEBLOAT safety net, and STICK_DEBLOAT is already recorded there.
+            for (String pkg : targets(home, originalDream(s), true, false)) {
                 if (!Arrays.asList(DEBLOAT).contains(pkg)) toEnable.add(pkg);   // o assistente também (applyOptions)
             }
             toEnable.removeAll(stringList(s, "keptOff"));
@@ -826,7 +857,9 @@ final class HomeMode {
                 String dream = originalDream(s);
                 // In the switch's order (Google TV's setup app before its home screen), then the rest.
                 List<String> order = new ArrayList<>();
-                for (String pkg : targets(home, dream, s.optBoolean("setupHome", true))) {
+                // stick=false: STICK_DEBLOAT is already in state's "disabled" (wanted), so the boot check re-applies it
+                // from there; targets() here only tops up the rest.
+                for (String pkg : targets(home, dream, s.optBoolean("setupHome", true), false)) {
                     if (!reverted || !(pkg.equals(homePkg) || pkg.equals(GOOGLE_SETUP) || pkg.equals(packageOf(dream)))) {
                         wanted.add(pkg);
                         order.add(pkg);
@@ -937,7 +970,7 @@ final class HomeMode {
      * screen off and it still on, its RecoveryActivity takes the Home button, and a restart there factory-reset a Xiaomi
      * (CleanYourTV, MiTV-MOSR4). Android's bare "fallback home" is never turned off.
      */
-    private static List<String> targets(String home, String dream, boolean setupHome) {
+    private static List<String> targets(String home, String dream, boolean setupHome, boolean stick) {
         List<String> out = new ArrayList<>();
         String homePkg = home.contains("FallbackHome") ? null : packageOf(home);
         if (setupHome) out.add(GOOGLE_SETUP);
@@ -947,6 +980,7 @@ final class HomeMode {
         // screensaver=false keeps the TV's own screensaver: then it stays on.
         if (Config.SCREENSAVER && dreamPkg != null && !dreamPkg.equals(PKG) && !dreamPkg.equals(homePkg)) out.add(dreamPkg);
         out.addAll(Arrays.asList(DEBLOAT));
+        if (stick) out.addAll(Arrays.asList(STICK_DEBLOAT));
         if (Config.DISABLE_ASSISTANT) out.addAll(Arrays.asList(ASSISTANT));
         return out;
     }
