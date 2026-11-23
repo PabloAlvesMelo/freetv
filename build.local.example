@@ -1,0 +1,23 @@
+# Melo Free TV — caminhos do toolchain por máquina.
+# Copie para "build.local" (que o build.sh lê e o git ignora) e ajuste os caminhos.
+#
+# Por que existe: o projeto compila com JDK 17 e build-tools 34 / android-34 (o mesmo do CI).
+# O Android Studio instala e atualiza sozinho versões mais novas (JDK 21/25, build-tools 36,
+# android-37) que o build.sh pegaria por padrão — e elas quebram a compilação de lambdas com
+# "Fatal Error: Unable to find method metafactory" ou deixam passar APIs que falham no CI.
+# Fixe aqui o toolchain do projeto para não depender do que o sistema tiver no momento.
+#
+# No Git Bash use barras "/": /c/... = C:\ , /d/... = D:\
+
+# JDK 17 (Temurin). Baixe o .zip x64 do JDK 17 em https://adoptium.net e descompacte.
+export JAVA_HOME="/d/devtools/jdk-17"
+
+# Android SDK. O do Android Studio costuma ficar em:
+#   Windows: /c/Users/<voce>/AppData/Local/Android/Sdk
+#   Linux:   $HOME/Android/Sdk      macOS: $HOME/Library/Android/sdk
+export ANDROID_HOME="/c/Users/SEU_USUARIO/AppData/Local/Android/Sdk"
+
+# Versões a usar (instale com: sdkmanager "build-tools;34.0.0" "platforms;android-34").
+# Deixe comentado para usar a mais nova instalada.
+export ANDROID_BUILD_TOOLS="34.0.0"
+export ANDROID_PLATFORM="android-34"

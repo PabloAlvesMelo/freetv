@@ -2,6 +2,8 @@
 config.properties
 *.keystore
 *.idsig
+# Per-machine build toolchain paths (see build.local.example)
+build.local
 # An LG TV's app list and icons (webos/apps.py)
 webos-apps.local.json
 webos-icons.local/

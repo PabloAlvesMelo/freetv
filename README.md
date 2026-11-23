@@ -169,14 +169,21 @@ app, há um QR code. Obrigado!
 
 ### O que você precisa
 
-- **JDK 17** ou mais novo (`java -version`).
+- **JDK 17** (`java -version`) — o mesmo do CI. Evite JDK 21/25 (os que o Android Studio instala): eles compilam o
+  projeto com `-source 8` de forma diferente e podem falhar com `Fatal Error: Unable to find method metafactory`.
 - **Android SDK** com as ferramentas de linha de comando: *build-tools 34* e *android-34*
-  (`sdkmanager "build-tools;34.0.0" "platforms;android-34"`).
+  (`sdkmanager "build-tools;34.0.0" "platforms;android-34"`). Não use *build-tools 36* / *android-37*: além do erro
+  acima, um SDK mais novo que o do projeto pode deixar passar uma chamada que falha no CI.
 - **ADB** (Android SDK Platform-Tools), para instalar na TV.
-- **Bash:** no macOS e no Linux já vem; no Windows, use o Git Bash ou o WSL. No Git Bash, defina o `ANDROID_HOME`
-  no formato do Windows (`C:\Users\<você>\AppData\Local\Android\Sdk`), não no formato `/c/Users/...`.
+- **Bash:** no macOS e no Linux já vem; no Windows, use o Git Bash ou o WSL.
 
 Não usa Gradle nem bibliotecas: o `build.sh` chama direto as ferramentas do SDK.
+
+**Fixar o toolchain (`build.local`).** Como o Android Studio instala e atualiza JDK e SDK para versões mais novas
+que as do projeto, copie o `build.local.example` para `build.local` (que o git ignora) e aponte ali o `JAVA_HOME`
+(JDK 17), o `ANDROID_HOME` e as versões `ANDROID_BUILD_TOOLS=34.0.0` e `ANDROID_PLATFORM=android-34`. O `build.sh` lê
+esse arquivo automaticamente, então o build usa sempre o toolchain certo, independente do que o sistema tiver no
+momento. No Git Bash use barras `/` nos caminhos (`/c/...` para `C:\`, `/d/...` para `D:\`).
 
 ### Passo a passo
 

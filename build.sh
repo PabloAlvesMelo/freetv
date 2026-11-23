@@ -8,6 +8,10 @@ cd "$(dirname "$0")"
 GENERIC=false
 for arg in "$@"; do [ "$arg" = "--generic" ] && GENERIC=true; done
 
+# Per-machine toolchain paths (JAVA_HOME, ANDROID_HOME), not committed. See build.local.example.
+# Lets a machine pin JDK 17 / the SDK when the system ones are a different version (e.g. Android Studio updated).
+[ -f build.local ] && . ./build.local
+
 # --- Tools
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [ -z "$SDK" ]; then
@@ -17,8 +21,14 @@ if [ -z "$SDK" ]; then
   done
 fi
 [ -n "$SDK" ] && [ -d "$SDK/build-tools" ] || { echo "Android SDK not found. Install it and set ANDROID_HOME (see README)."; exit 1; }
-BT="$SDK/build-tools/$(ls "$SDK/build-tools" | sort -V | tail -1)"
-AJ="$(ls -d "$SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1 || true)"
+# Pin the versions from build.local (ANDROID_BUILD_TOOLS, ANDROID_PLATFORM) when set, else the newest installed.
+# Android Studio keeps adding newer ones (build-tools 36, android-37), which a plain build would pick up; a newer
+# SDK than the project's (build-tools 34, android-34) can break the build or let a call through that fails on CI.
+if [ -n "${ANDROID_BUILD_TOOLS:-}" ]; then BT="$SDK/build-tools/$ANDROID_BUILD_TOOLS"
+else BT="$SDK/build-tools/$(ls "$SDK/build-tools" | sort -V | tail -1)"; fi
+[ -d "$BT" ] || { echo "Build-tools not found: $BT. Run: sdkmanager \"build-tools;34.0.0\""; exit 1; }
+if [ -n "${ANDROID_PLATFORM:-}" ]; then AJ="$SDK/platforms/$ANDROID_PLATFORM/android.jar"
+else AJ="$(ls -d "$SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1 || true)"; fi
 [ -f "${AJ:-}" ] || { echo "Android platform not found. Run: sdkmanager \"platforms;android-34\""; exit 1; }
 JAVAC="${JAVA_HOME:+$JAVA_HOME/bin/}javac"
 KEYTOOL="${JAVA_HOME:+$JAVA_HOME/bin/}keytool"
@@ -163,9 +173,11 @@ EOF
     "${JAVA_HOME:+$JAVA_HOME/bin/}java" out/FixAssets.java out/base.apk
     ;;
 esac
-# On Windows javac separates paths with ";", and d8 and apksigner are .bat files.
-CPSEP=:; BAT=; case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) CPSEP=";"; BAT=.bat ;; esac
-"$JAVAC" -nowarn -Xlint:-options -source 8 -target 8 -bootclasspath "$AJ$CPSEP$BT/core-lambda-stubs.jar" -classpath "$AJ" \
+# On Windows d8 and apksigner are .bat files.
+# core-lambda-stubs.jar (the LambdaMetafactory for -source 8 lambdas) goes on -classpath, not -bootclasspath:
+# newer javac (seen on 17.0.21) ignores it on the bootclasspath and fails with "Unable to find method metafactory".
+BAT=; case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) BAT=.bat ;; esac
+"$JAVAC" -nowarn -Xlint:-options -source 8 -target 8 -bootclasspath "$AJ" -classpath "$BT/core-lambda-stubs.jar" \
   -encoding UTF-8 -d out/classes $(find app/src out/gen -name '*.java')
 "$BT/d8$BAT" --release --min-api 26 --lib "$AJ" --output out $(find out/classes -name '*.class')
 if command -v zip >/dev/null; then (cd out && zip -qj base.apk classes.dex)
